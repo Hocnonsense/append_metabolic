@@ -259,7 +259,7 @@ close IN;
 # 		that is:
 # ["Function", "Entry", "Category", "Function", "Gene abbreviation"]
 
-`mkdir $output/intermediate_files`;
+`mkdir -p $output/intermediate_files`;
 
 my %Genome_id = (); # genome id => 1
 my %Total_faa_seq = (); # Store the total faa file into a hash
@@ -302,7 +302,7 @@ while (<IN>){
 # 	key type string: "{modified_gene_id,{genome_id}~~{gene_id}}"
 
 `cat $input_protein_folder/*.faa > $output/total.faa`;
-`mkdir $output/intermediate_files/Hmmsearch_Outputs`;
+`mkdir -p $output/intermediate_files/Hmmsearch_Outputs`;
 
 open OUT, ">$output/tmp_run_hmmsearch.sh";
 foreach my $hmm (sort keys %Total_hmm2threshold){
@@ -323,24 +323,56 @@ foreach my $hmm (sort keys %Total_hmm2threshold){
 }
 close OUT;
 
-my %test_export = ("a"=>"1");
+# Parallel run hmmsearch
+ $datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
+ print "\[$datestring\] The hmmsearch is running with $cpu_numbers cpu threads...\n";
+ # TODO: not rerun
+ # _run_parallel("$output/tmp_run_hmmsearch.sh", $cpu_numbers); `rm $output/tmp_run_hmmsearch.sh`;
+ $datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
+ print "\[$datestring\] The hmmsearch is finished\n";
+
+sub _get_motif{
+	my $file = $_[0];
+	my %Hash;
+	open _IN, "$file";
+	while (<_IN>){
+		chomp;
+		my @tmp = split (/\:/);
+		$Hash{$tmp[0]} = $tmp[1];
+	}
+	close _IN;
+	return %Hash;
+}
+sub _get_motif_pair{
+	my $file = $_[0];
+	my %Hash; # dsrC => tusE
+	open _IN, "$file";
+	while (<_IN>){
+		chomp;
+		my @tmp = split (/\:/);
+		$Hash{$tmp[0]} = $tmp[1];
+	}
+	close _IN;
+	return %Hash;
+}
+# Store motif validation files
+# "METABOLIC_template_and_database/motif.txt"
+my %Motif = _get_motif($motif_file); # protein id => motif sequences (dsrC => GPXKXXCXXXGXPXPXXCX)
+# "METABOLIC_template_and_database/motif.pair.txt"
+my %Motif_pair = _get_motif_pair($motif_pair_file); # dsrC => tusE
+
+# Motif: dict[str, str]
+# 	key type string: "{gene_name,str}"
+# 	value type string: "pattern"
+# Motif_pair: dict[str, str]
+# 	key type string: "{gene_name,str}"
+# 	value type string: "{gene_name,str}"
+
+my %test_export = %Motif;
 while (my ($key, $value) = each(%test_export)){
     print ">$key<: >$value<\n";
 }
 die("0\n");
-
-$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
-print "\[$datestring\] The hmmsearch is running with $cpu_numbers cpu threads...\n";
-
-# Parallel run hmmsearch
-_run_parallel("$output/tmp_run_hmmsearch.sh", $cpu_numbers); `rm $output/tmp_run_hmmsearch.sh`;
-
-$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
-print "\[$datestring\] The hmmsearch is finished\n";
-
-# Store motif validation files
-my %Motif = _get_motif($motif_file); # protein id => motif sequences (dsrC => GPXKXXCXXXGXPXPXXCX)
-my %Motif_pair = _get_motif_pair($motif_pair_file); # dsrC => tusE
 
 # Summarize hmmsearch result and print table
 my %Hmmscan_result = (); # genome_name => hmm => numbers
@@ -1307,32 +1339,6 @@ sub _get_check_score{
 	}
 	close _IN;
 	return $score;
-}
-
-sub _get_motif{
-	my $file = $_[0];
-	my %Hash; # protein id => motif sequences (dsrC => GPXKXXCXXXGXPXPXXCX)
-	open _IN, "$file";
-	while (<_IN>){
-		chomp;
-		my @tmp = split (/\:/);
-		$Hash{$tmp[0]} = $tmp[1];
-	}
-	close _IN;
-	return %Hash;
-}
-
-sub _get_motif_pair{
-	my $file = $_[0];
-	my %Hash; # dsrC => tusE
-	open _IN, "$file";
-	while (<_IN>){
-		chomp;
-		my @tmp = split (/\:/);
-		$Hash{$tmp[0]} = $tmp[1];
-	}
-	close _IN;
-	return %Hash;
 }
 
 sub _run_parallel{
