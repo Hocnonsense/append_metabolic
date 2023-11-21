@@ -301,34 +301,33 @@ while (<IN>){
 # Total_faa_seq: dict[str, AaSeq]
 # 	key type string: "{modified_gene_id,{genome_id}~~{gene_id}}"
 
-open OUT, ">$output/tmp_run_hmmsearch.sh";
-`cat $input_protein_folder/*.faa > $input_protein_folder/faa.total`;
-`mv $input_protein_folder/faa.total $input_protein_folder/total.faa`;
-
-my %test_export = %Total_faa_seq;
-while ((my $key, my $value) = each(%test_export)){
-    print ">$key<: >$value<\n";
-}
-die("0\n");
-
+`cat $input_protein_folder/*.faa > $output/total.faa`;
 `mkdir $output/intermediate_files/Hmmsearch_Outputs`;
+
+open OUT, ">$output/tmp_run_hmmsearch.sh";
 foreach my $hmm (sort keys %Total_hmm2threshold){
-	my ($threshold,$score_type) = $Total_hmm2threshold{$hmm} =~ /^(.+?)\|(.+?)$/;
+	my ($threshold, $score_type) = $Total_hmm2threshold{$hmm} =~ /^(.+?)\|(.+?)$/;
 	if ($score_type eq "full"){
 		if ($hmm !~ /K\d\d\d\d\d/){
-			print OUT "hmmsearch -T $threshold --cpu 1 --tblout $output/intermediate_files/Hmmsearch_Outputs/$hmm.total.hmmsearch_result.txt $METABOLIC_hmm_db_address/$hmm $input_protein_folder/total.faa\n";
+			print OUT "hmmsearch -T $threshold --cpu 1 --tblout $output/intermediate_files/Hmmsearch_Outputs/$hmm.total.hmmsearch_result.txt $METABOLIC_hmm_db_address/$hmm $output/total.faa\n";
 		}else{
-			print OUT "hmmsearch -T $threshold --cpu 1 --tblout $output/intermediate_files/Hmmsearch_Outputs/$hmm.total.hmmsearch_result.txt $kofam_db_address/$hmm $input_protein_folder/total.faa\n";
+			print OUT "hmmsearch -T $threshold --cpu 1 --tblout $output/intermediate_files/Hmmsearch_Outputs/$hmm.total.hmmsearch_result.txt $kofam_db_address/$hmm $output/total.faa\n";
 		}
 	}else{
 		if ($hmm !~ /K\d\d\d\d\d/){
-			print OUT "hmmsearch --domT $threshold --cpu 1 --tblout $output/intermediate_files/Hmmsearch_Outputs/$hmm.total.hmmsearch_result.txt $METABOLIC_hmm_db_address/$hmm $input_protein_folder/total.faa\n";
+			print OUT "hmmsearch --domT $threshold --cpu 1 --tblout $output/intermediate_files/Hmmsearch_Outputs/$hmm.total.hmmsearch_result.txt $METABOLIC_hmm_db_address/$hmm $output/total.faa\n";
 		}else{
-			print OUT "hmmsearch --domT $threshold --cpu 1 --tblout $output/intermediate_files/Hmmsearch_Outputs/$hmm.total.hmmsearch_result.txt $kofam_db_address/$hmm $input_protein_folder/total.faa\n";
+			print OUT "hmmsearch --domT $threshold --cpu 1 --tblout $output/intermediate_files/Hmmsearch_Outputs/$hmm.total.hmmsearch_result.txt $kofam_db_address/$hmm $output/total.faa\n";
 		}
 	}
 }
 close OUT;
+
+my %test_export = ("a"=>"1");
+while (my ($key, $value) = each(%test_export)){
+    print ">$key<: >$value<\n";
+}
+die("0\n");
 
 $datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
 print "\[$datestring\] The hmmsearch is running with $cpu_numbers cpu threads...\n";
@@ -367,7 +366,7 @@ while (<IN>){
 								if (exists $Motif{$hmm_basename}){
 									my $seq;
 									my $motif = $Motif{$hmm_basename}; $motif =~ s/X/\[ARNDCQEGHILKMFPSTWYV\]/g;
-									my %Seq_gn = _store_seq("$input_protein_folder/total.faa"); # Get the total genome sequences
+									my %Seq_gn = _store_seq("$output/total.faa"); # Get the total genome sequences
 									$seq = $Seq_gn{">$tmp[0]"};
 									if ($seq =~ /$motif/){
 										if (! exists $Hmmscan_hits{$gn_id}{$hmm}){
@@ -380,7 +379,7 @@ while (<IN>){
 								}elsif(exists $Motif_pair{$hmm_basename}){
 									my $motif_hmm = "$METABOLIC_hmm_db_address/$hmm_basename.check.hmm";
 									my $motif_anti_hmm = "$METABOLIC_hmm_db_address/$Motif_pair{$hmm_basename}.check.hmm";
-									_get_1_from_input_faa("$input_protein_folder/total.faa",">$tmp[0]","$output/tmp.$hmm_basename.check.faa");
+									_get_1_from_input_faa("$output/total.faa",">$tmp[0]","$output/tmp.$hmm_basename.check.faa");
 									`hmmsearch --cpu 1 --tblout $output/tmp.$hmm_basename.check.hmmsearch_result.txt $motif_hmm $output/tmp.$hmm_basename.check.faa`;
 									`hmmsearch --cpu 1 --tblout $output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt $motif_anti_hmm $output/tmp.$hmm_basename.check.faa`;
 									my $motif_check_score = _get_check_score("$output/tmp.$hmm_basename.check.hmmsearch_result.txt");
@@ -408,7 +407,7 @@ while (<IN>){
 							if (exists $Motif{$hmm_basename}){
 								my $seq; # the protein seq
 								my $motif = $Motif{$hmm_basename};  $motif =~ s/X/\[ARNDCQEGHILKMFPSTWYV\]/g;
-								my %Seq_gn = _store_seq("$input_protein_folder/total.faa"); # get the total genome sequences
+								my %Seq_gn = _store_seq("$output/total.faa"); # get the total genome sequences
 								$seq = $Seq_gn{">$tmp[0]"};
 								if ($seq =~ /$motif/){
 									if (! exists $Hmmscan_hits{$gn_id}{$hmm}){
@@ -421,7 +420,7 @@ while (<IN>){
 							}elsif(exists $Motif_pair{$hmm_basename}){
 								my $motif_hmm = "$METABOLIC_hmm_db_address/$hmm_basename.check.hmm";
 								my $motif_anti_hmm = "$METABOLIC_hmm_db_address/$Motif_pair{$hmm_basename}.check.hmm";
-								_get_1_from_input_faa("$input_protein_folder/total.faa",">$tmp[0]","$output/tmp.$hmm_basename.check.faa");
+								_get_1_from_input_faa("$output/total.faa",">$tmp[0]","$output/tmp.$hmm_basename.check.faa");
 								`hmmsearch --cpu 1 --tblout $output/tmp.$hmm_basename.check.hmmsearch_result.txt $motif_hmm $output/tmp.$hmm_basename.check.faa`;
 								`hmmsearch --cpu 1 --tblout $output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt $motif_anti_hmm $output/tmp.$hmm_basename.check.faa`;
 								my $motif_check_score = _get_check_score("$output/tmp.$hmm_basename.check.hmmsearch_result.txt");
@@ -450,7 +449,7 @@ while (<IN>){
 }
 close IN;
 
-`rm $input_protein_folder/total.faa`;
+`rm $output/total.faa`;
 
 $datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
 print "\[$datestring\] The hmm hit result is calculating...\n";
