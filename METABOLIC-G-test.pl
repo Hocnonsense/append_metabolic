@@ -490,44 +490,38 @@ foreach my $line_no (sort keys %Hmm_table_temp){
 	# Hmm_table_body_worksheet1: list[str] = Hmm_table_temp[line_no].strip().split("\t")
 
 	my @tmp = split(/\t/,$Hmm_table_temp{$line_no});
-	my $hmm = $tmp[5];
 	# all 10 values are extracted from $Hmm_table_temp
 	for(my $i=0; $i<=9; $i++){
 		push @Hmm_table_body_worksheet1, $tmp[($i+1)];
 	}
 
+	my $hmm = $tmp[5];
+	my @hmms = ();
+	if ($hmm and $hmm !~ /\,\s/){
+		@hmms = ($hmm);
+	} elsif ($hmm and $hmm =~ /\,\s/){
+		@hmms = split (/\,\s/,$hmm);
+	}
 	foreach my $gn_id (sort keys %Genome_id){
 		my $hmm_presence = "Absent";
 		my $hit_num = 0;
+
 		my @Hits = ();
-		if ($hmm and $hmm !~ /\,\s/){
-			if ($Hmmscan_result{$gn_id}{$hmm}){
-				$hmm_presence = "Present";
-				push @Hits, $Hmmscan_hits{$gn_id}{$hmm};
-				$hit_num = $Hmmscan_result{$gn_id}{$hmm};
+		for(my $i=0; $i<=$#hmms; $i++){
+			if ($Hmmscan_result{$gn_id}{$hmms[$i]}){
+				$hit_num += $Hmmscan_result{$gn_id}{$hmms[$i]};
+				push @Hits, $Hmmscan_hits{$gn_id}{$hmms[$i]};
 			}else{
 				push @Hits, "None";
 			}
-		} elsif ($hmm and $hmm =~ /\,\s/){
-			my @tmp = split (/\,\s/,$hmm);
-			my $sum = 0;
-			for(my $i=0; $i<=$#tmp; $i++){
-				if ($Hmmscan_result{$gn_id}{$tmp[$i]}){
-					$sum += $Hmmscan_result{$gn_id}{$tmp[$i]};
-					push @Hits, $Hmmscan_hits{$gn_id}{$tmp[$i]};
-				}else{
-					push @Hits, "None";
-				}
-			}
-			if ($sum){
-				$hmm_presence = "Present";
-			}
-			$hit_num = $sum;
+		}
+		if ($hit_num){
+			$hmm_presence = "Present";
 		}
 
-		push @Hmm_table_body_worksheet1,$hmm_presence;
-		push @Hmm_table_body_worksheet1,$hit_num;
-		push @Hmm_table_body_worksheet1,join("\;",@Hits);
+		push @Hmm_table_body_worksheet1, $hmm_presence;
+		push @Hmm_table_body_worksheet1, $hit_num;
+		push @Hmm_table_body_worksheet1, join("\;",@Hits);
 	}
 	print OUT join("\t",@Hmm_table_body_worksheet1)."\n";
 }
