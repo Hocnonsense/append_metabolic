@@ -581,7 +581,7 @@ close OUT;
 $datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
 print "\[$datestring\] Generating each hmm faa collection...\n";
 
-`mkdir $output/Each_HMM_Amino_Acid_Sequence`;
+`mkdir -p $output/Each_HMM_Amino_Acid_Sequence`;
 
 foreach my $hmm (sort keys %Hmm_id){
 	my %Hmm_faa_seq = (); # Store the faa seqs in a hmm
@@ -597,25 +597,14 @@ foreach my $hmm (sort keys %Hmm_id){
 
 		}
 	}
-	if (%Hmm_faa_seq){
-		open OUT, ">$output/Each_HMM_Amino_Acid_Sequence/$hmm.collection.faa";
-		foreach my $key (sort keys %Hmm_faa_seq){
-			print OUT "$key\n$Hmm_faa_seq{$key}\n";
-		}
-		close OUT;
-	}
+	#if (%Hmm_faa_seq){
+	#	open OUT, ">$output/Each_HMM_Amino_Acid_Sequence/$hmm.collection.faa";
+	#	foreach my $key (sort keys %Hmm_faa_seq){
+	#		print OUT "$key\n$Hmm_faa_seq{$key}\n";
+	#	}
+	#	close OUT;
+	#}
 }
-
-print "@Hmm_table_head_worksheet2\n";
-die("0\n");
-#my %test_export = %Hmmscan_hits;
-#foreach my $key (sort keys %test_export){
-#    print ">$key<: >$test_export{$key}<\n";
-#	my $test_export1 = $test_export{$key};
-#	foreach my $key1 (sort keys %$test_export1){
-#		print ">$key1<: >$test_export{$key}{$key1}<\n";
-#	}
-#}
 
 $datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
 print "\[$datestring\] Each hmm faa collection has been made\n";
@@ -627,6 +616,7 @@ print "\[$datestring\] The KEGG module result is calculating...\n";
 # Store the KEGG module table
 my %Cat2module = ();  # module category => modules "\t"
 my $head_cat2module = ""; # Central carbohydrate metabolism
+# "METABOLIC_template_and_database/ko00002.keg"
 open IN, "$ko_module_table";
 while (<IN>){
 	chomp;
@@ -646,10 +636,15 @@ while (<IN>){
 }
 close IN;
 
+# Cat2module: dict[str, str]
+# 	key type string: "{module category,str}"
+# 	value type string: "{(M\d{5}\t)*M\d{5}}"
+
 # Store the KEGG module step database
 my %KEGG_module = (); # M00804+01 => 0: k_string 1: name (dTDP-D-forosamine biosynthesis)
 my %KEGG_module2step_number = (); # M00804 => 3
 my %KEGG_module2name = (); # M00804 => dTDP-D-forosamine biosynthesis
+# "METABOLIC_template_and_database/kegg_module_step_db.txt"
 open IN, "$ko_module_step_db";
 while (<IN>){
 	chomp;
@@ -664,8 +659,47 @@ while (<IN>){
 }
 close IN;
 
+# will use more efficient way
+
+# Input the hmm_table_temp hash, return a hmm to ko hash (like: TIGR02694.hmm => K08355.hmm)
+# some feature? "K00129.hmm, K00138.hmm" => "K00129, K00138.hmm"
+sub _get_hmm_2_KO_hash{
+	my %hash = @_;
+	my %result = ();
+	my %result2 = ();
+	foreach my $line_no (sort keys %hash){
+		my @tmp = split (/\t/, $hash{$line_no});
+		my $hmm = $tmp[5];
+		my $ko = $tmp[6];
+		if ($hmm and $hmm !~ /\;/){
+				$result{$hmm} = $ko."\.hmm";
+		}elsif ($hmm){
+			my @array_hmm = split (/\; /, $hmm);
+			my @array_ko = split (/\; /, $ko);
+			for(my $i=0; $i<=$#array_hmm; $i++){
+				$result{$array_hmm[$i]} = $array_ko[$i]."\.hmm";
+			}
+		}
+	}
+
+	foreach my $hmm (sort keys %result){
+		if ($result{$hmm} =~ /^K\d\d\d\d\d/){
+			$result2{$hmm} = $result{$hmm};
+		}
+	}
+	return %result2;
+}
+
 # The hmm to ko id hash
 my %Hmm2ko = _get_hmm_2_KO_hash(%Hmm_table_temp); # like: TIGR02694.hmm => K08355.hmm
+
+# Hmm2ko: dict[str, str] # "K00129.hmm, K00138.hmm" => "K00129, K00138.hmm"
+
+my %test_export = %Hmm2ko;
+foreach my $key (sort keys %test_export){
+    print ">$key<: >$test_export{$key}<\n";
+}
+die("0\n");
 
 # To see whether a module step exists for a given genome
 my %Module_step_result = (); # M00804+01 => genome id => 1 / 0
@@ -1143,34 +1177,6 @@ close OUT;
 sub parse_duration {
     use integer;
     sprintf("%02d:%02d:%02d", $_[0]/3600, $_[0]/60%60, $_[0]%60);
-}
-
-# Input the hmm_table_temp hash, return a hmm to ko hash (like: TIGR02694.hmm => K08355.hmm)
-sub _get_hmm_2_KO_hash{
-	my %hash = @_;
-	my %result = ();
-	my %result2 = ();
-	foreach my $line_no (sort keys %hash){
-		my @tmp = split (/\t/, $hash{$line_no});
-		my $hmm = $tmp[5];
-		my $ko = $tmp[6];
-		if ($hmm and $hmm !~ /\;/){
-				$result{$hmm} = $ko."\.hmm";
-		}elsif ($hmm){
-			my @array_hmm = split (/\; /, $hmm);
-			my @array_ko = split (/\; /, $ko);
-			for(my $i=0; $i<=$#array_hmm; $i++){
-				$result{$hmm} = $array_ko[$i]."\.hmm";
-			}
-		}
-	}
-
-	foreach my $hmm (sort keys %result){
-		if ($result{$hmm} =~ /^K\d\d\d\d\d/){
-			$result2{$hmm} = $result{$hmm};
-		}
-	}
-	return %result2;
 }
 
 # Input faa file, and output the seq hash
