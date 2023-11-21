@@ -6,12 +6,12 @@
 
 # METABOLIC  =>  METabolic And BiogeOchemistry anaLyses In miCrobes
 
-# This software gives a metabolic and biogeochemical function trait profile to given genome datasets 
-# [either metagenome-assembled genomes (MAGs), single-cell amplified genomes (SAGs) or pure culture sequenced genomes]. 
+# This software gives a metabolic and biogeochemical function trait profile to given genome datasets
+# [either metagenome-assembled genomes (MAGs), single-cell amplified genomes (SAGs) or pure culture sequenced genomes].
 # It also integrates the genome coverage to make element cycling pathways.
 # METABOLIC-G.pl is specifically for users who do not have metagenomic reads and only want to get metabolic profiles and biogeochemical cycling diagram of input genomes.
 
-# Written by Zhichao Zhou, zczhou2017@gmail.com 
+# Written by Zhichao Zhou, zczhou2017@gmail.com
 # July, 2019
 
 # This program is free software: you can redistribute it and/or modify
@@ -45,29 +45,29 @@ use File::Basename;
 =head1 DESCRIPTION
 
         Takes a folder containing genome files to generate a profile of their metablic and biogeochemical functions
-        
-=head1 USAGE       
+
+=head1 USAGE
 
         perl METABOLIC-G.pl -t 40 -m-cutoff 0.75 -in Genome_proteins -kofam-db full -o METABOLIC_out
 		(import genome proteins by users)
-        
+
         perl METABOLIC-G.pl -t 40 -m-cutoff 0.75 -in-gn Genome_files -kofam-db full -o METABOLIC_out
 		(import genome sequences by users, we will translate  them by prodigal)
-		
+
 	perl METABOLIC-G.pl -test true
 		(use the 5 genomes to test the METABOLIC-G script)
-        
+
 =head1 OPTIONS
 
 	-t         or -cpu             [integer] The cpu numbers to run the hmmsearch (default: 20)
-        -m-cutoff  or -module-cutoff   [float]   The cutoff value to assign the presence of a specific KEGG module (KEGG module step present numbers / KEGG module step total number) (default: 0.75) 
+        -m-cutoff  or -module-cutoff   [float]   The cutoff value to assign the presence of a specific KEGG module (KEGG module step present numbers / KEGG module step total number) (default: 0.75)
         -in                            [string]  The folder pf given genome faa files [should also give the genome fasta files and genone gene files if the (meta)genome/(meta)transciptome datasets are included]
         -in-gn                         [string]  The folder of given genome fasta files (Prodigal will be used to annotate your genomes)
         -kofam-db                      [string]  to use the "small" size or "full" size of KOfam database in METABOLIC (default: 'full')
 	-p         or -prodigal-method [string]  "meta" or "single" for prodigal to annotate the orf
 	-o         or -output          [string]  The METABOLIC output folder (default: current address)
 	-test                          [string]  The option to test the performance of METABOLIC-G by 5 genomes; "true" or "false" to run the test option.	The test option will use 5 CPUs to run the command.
-	
+
 =head1 INSTRUCTIONS
 
 	GitHub: https://github.com/AnantharamanLab/METABOLIC
@@ -77,7 +77,7 @@ use File::Basename;
         Prodigal-annotated protein and gene files will be given in the input folder.
         The METABOLIC result table will be generated.
 	Biogeochemical pathway diagrams will be generated.
-		
+
 =head1 COPYRIGHT
 
 	Zhichao Zhou, zczhou2017@gmail.com
@@ -90,7 +90,7 @@ use File::Basename;
 # Intake the address of METABOLIC directory:
 my $METABOLIC_dir = dirname(File::Spec->rel2abs(__FILE__));
 
-# The options 
+# The options
 # Option variables with default value
 my $cpu_numbers = 20; # Parallel running cpu numbers
 my $module_cutoff = 0.75; # The cutoff value to assign the existence of a module
@@ -99,9 +99,8 @@ my $input_genome_folder; # Input microbial genome fasta files
 #my $omic_reads_parameters; # The address of omic reads (Only applicable for METABOLIC-C)
 my $prodigal_method = "meta"; # The prodigal method to annotate orfs
 my $kofam_db_size = "full"; # The full kofam size
-my $output = `pwd`; # The output folder 
-my $version="METABOLIC-G.pl v4.0";
-my $test = "false";
+my $output = `pwd`; # The output folder
+my $version="METABOLIC-G-test.pl v4.0-test-1";
 
 GetOptions(
 	'cpu|t=i' => \$cpu_numbers,
@@ -110,31 +109,28 @@ GetOptions(
 	'in-gn=s' => \$input_genome_folder,
 	'prodigal-method|p=s' => \$prodigal_method,
 	'kofam-db=s' => \$kofam_db_size,
-	'output|o=s' => \$output,
-	'help|h' => sub{system('perldoc', $0); exit;},
-	'v|version'=>sub{print $version."\n"; exit;},
-	'test=s' => \$test
+	'output|o=s' => \$output
 ) or die("Getting options from the command line failed, please check your options");
 
 ## Pre-required files and documents
  # METABOLIC hmm database files
  my $METABOLIC_hmm_db_address = "$METABOLIC_dir/METABOLIC_hmm_db";
- 
+
  # KofamKOALA hmm database files
  # Link: ftp://ftp.genome.jp/pub/db/kofam/
  my $kofam_db_address = "$METABOLIC_dir/kofam_database/profiles";
  my $kofam_db_KO_list = "$METABOLIC_dir/kofam_database/ko_list";
- 
+
  # Input hmm information table as a template
  my $hmm_table_temp = "$METABOLIC_dir/METABOLIC_template_and_database/hmm_table_template.txt";
- my $hmm_table_temp_2 = "$METABOLIC_dir/METABOLIC_template_and_database/hmm_table_template_2.txt"; 
- 
+ my $hmm_table_temp_2 = "$METABOLIC_dir/METABOLIC_template_and_database/hmm_table_template_2.txt";
+
  # The KEGG module information
  my $ko_module_table = "$METABOLIC_dir/METABOLIC_template_and_database/ko00002.keg";
- 
- # The KEGG module step db 
+
+ # The KEGG module step db
  my $ko_module_step_db = "$METABOLIC_dir/METABOLIC_template_and_database/kegg_module_step_db.txt";
- 
+
  # The pathway information to draw element cycling diagrams and metabolic handoff
  my $R_pathways = "$METABOLIC_dir/METABOLIC_template_and_database/R_pathways.txt";
  my $R_mh_01 = "$METABOLIC_dir/METABOLIC_template_and_database/Sequential_transformations_01.txt";
@@ -143,64 +139,84 @@ GetOptions(
  my $R_order_of_input_01 = "$METABOLIC_dir/METABOLIC_template_and_database/order_of_input_01.txt";
  my $R_order_of_input_02 = "$METABOLIC_dir/METABOLIC_template_and_database/order_of_input_02.txt";
  my $CAZy_map_address = "$METABOLIC_dir/METABOLIC_template_and_database/CAZy_map.txt";
- 
+
  # The motif files to validate specific protein hits
  my $motif_file = "$METABOLIC_dir/METABOLIC_template_and_database/motif.txt";
  my $motif_pair_file = "$METABOLIC_dir/METABOLIC_template_and_database/motif.pair.txt";
  my $motif_freq_folder = "$METABOLIC_dir/METABOLIC_template_and_database/motif_frequency";
 
-# The test option:
-if ($test eq "true"){
-	$input_genome_folder = "$METABOLIC_dir/METABOLIC_test_files/Guaymas_Basin_genome_files";
-	$output = "METABOLIC_out";
-	$cpu_numbers = "5";
-}
-
 ## Main Body
 # The present time
 
-`mkdir $output`;
+`mkdir -p $output`;
 
-my $datestring = strftime "%Y-%m-%d %H:%M:%S", localtime; 
+my $datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
 my $statetime = $datestring; my $starttime_raw = time;
 
-# Store the stdout and stderr into log  
+# Store the stdout and stderr into log
 open STDOUT, "| tee -ai $output/METABOLIC_log.log";
 open STDERR, "| tee -ai $output/METABOLIC_log.log";
 
 # Store the hmm table template
-my %Hmm_table_temp = (); # line no. => each line 
+my %Hmm_table_temp = (); # line no. => each line
 my @Hmm_table_head = (); # The head of the hmm table template
 my %METABOLIC_hmm2threshold = (); # hmm file id => threshold and score_type
 open IN, "$hmm_table_temp";
 while (<IN>){
 	chomp;
-	if (!/^#/){		
+	if (!/^#/){
 		my @tmp = split (/\t/);
 		$Hmm_table_temp{$tmp[0]} = $_;
 		if ($tmp[5] and $tmp[5] !~ /K\d\d\d\d\d/){
 			$METABOLIC_hmm2threshold{$tmp[5]} = $tmp[10];
 		}
 	}else{
-		my $line = $_; @Hmm_table_head = split (/\t/);		
+		my $line = $_; @Hmm_table_head = split (/\t/);
 	}
 }
 close IN;
 
+# Hmm_table_head: list[str] = [
+# 	"#Entry	Category",
+#   "Function",
+#   "Gene abbreviation",
+#   "Gene name",
+#   "Hmm file",
+#   "Corresponding KO",
+#   "Reaction",
+#   "Substrate",
+#   "Product",
+#   "Hmm detecting threshold"
+# ]
+# METABOLIC_hmm2threshold: dict[str, str]
+# 	key type string: "{genename,str}.hmm"
+# 	value type string: "{threshold,float}|{type,(full|domain)}"
+
 # Store the hmm table template 2
-my %Hmm_table_temp_2 = (); # line no. => each line; 
+my %Hmm_table_temp_2 = (); # line no. => each line;
 open IN, "$hmm_table_temp_2";
 while (<IN>){
 	chomp;
-	if (!/^#/){	
+	if (!/^#/){
 		my @tmp = split (/\t/);
 		$Hmm_table_temp_2{$tmp[0]}= $_;
 	}
 }
 close IN;
 
+# Hmm_table_temp_2: dict[str, str]
+# 	key type string: "{genename,\d{3}}"
+# 	value type string: "the line in file"
+# 		that is:
+# ["Function", "Entry", "Category", "Function", "Gene abbreviation"]
+
 # The hash of hmm file and corresponding threshold and score_type
-my %Total_hmm2threshold = (%METABOLIC_hmm2threshold, _get_kofam_db_KO_threshold($kofam_db_KO_list,$kofam_db_address)); 
+my %Total_hmm2threshold = (%METABOLIC_hmm2threshold, _get_kofam_db_KO_threshold($kofam_db_KO_list,$kofam_db_address));
+
+while((my $key, my $value) = each(%Total_hmm2threshold)){
+    print ">$key<: >$Total_hmm2threshold{$key}<\n";
+}
+die("0\n");
 
 `mkdir $output/intermediate_files`;
 
@@ -208,7 +224,7 @@ if ($input_genome_folder){
 	open OUT, ">$output/tmp_run_annotate.sh";
 	open OUT2, ">$output/tmp_run_annotate.sh.2";
 	open IN, "ls $input_genome_folder/*.fasta |";
-	$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime; 
+	$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
 	print "\[$datestring\] The Prodigal annotation is running...\n";
 	while (<IN>){
 		chomp;
@@ -219,17 +235,17 @@ if ($input_genome_folder){
 	close IN;
 	close OUT;
 	close OUT2;
-	
+
 	_run_parallel("$output/tmp_run_annotate.sh", $cpu_numbers); `rm $output/tmp_run_annotate.sh`;
-	_run_parallel("$output/tmp_run_annotate.sh.2", $cpu_numbers); `rm $output/tmp_run_annotate.sh.2`;	
+	_run_parallel("$output/tmp_run_annotate.sh.2", $cpu_numbers); `rm $output/tmp_run_annotate.sh.2`;
 
 	$input_protein_folder = $input_genome_folder;
-	$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime; 
+	$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
 	print "\[$datestring\] The Prodigal annotation is finished\n";
 }
 
 my %Genome_id = (); # genome id => 1
-my %Seqid2Genomeid = (); # seq id => genome id 
+my %Seqid2Genomeid = (); # seq id => genome id
 my %Total_faa_seq = (); # Store the total faa file into a hash
 my %Total_gene_seq = (); # Store the total gene file into a hash
 open IN,"ls $input_protein_folder/*.faa |";
@@ -237,15 +253,15 @@ while (<IN>){
 	chomp;
 	my $file = $_;
 	my ($file_name) = $file =~ /^(.+?)\.faa$/;
-	
+
 	# Store faa file into a hash
 	%Total_faa_seq = (%Total_faa_seq, _get_faa_seq($file));
 	if ($input_genome_folder){
 		%Total_gene_seq = (%Total_gene_seq, _get_gene_seq("$file_name\.gene"));
 	}
-	
-	my ($gn_id) = $file =~ /^$input_protein_folder\/(.+?)\.faa/; 
-	$Genome_id{$gn_id} = 1; 
+
+	my ($gn_id) = $file =~ /^$input_protein_folder\/(.+?)\.faa/;
+	$Genome_id{$gn_id} = 1;
 	open IN_, "$file";
 	while (<IN_>){
 		if (/>/){
@@ -283,13 +299,13 @@ foreach my $hmm (sort keys %Total_hmm2threshold){
 }
 close OUT;
 
-$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime; 
+$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
 print "\[$datestring\] The hmmsearch is running with $cpu_numbers cpu threads...\n";
 
 # Parallel run hmmsearch
 _run_parallel("$output/tmp_run_hmmsearch.sh", $cpu_numbers); `rm $output/tmp_run_hmmsearch.sh`;
 
-$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime; 
+$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
 print "\[$datestring\] The hmmsearch is finished\n";
 
 # Store motif validation files
@@ -299,12 +315,12 @@ my %Motif_pair = _get_motif_pair($motif_pair_file); # dsrC => tusE
 # Summarize hmmsearch result and print table
 my %Hmmscan_result = (); # genome_name => hmm => numbers
 my %Hmmscan_hits = (); # genome_name => hmm => hits
-my %Hmm_id = (); # hmm => 1 
+my %Hmm_id = (); # hmm => 1
 open IN, "find $output/intermediate_files/Hmmsearch_Outputs -type f -name '*.hmmsearch_result.txt' | ";
 while (<IN>){
         chomp;
         my $file_name = $_;
-        my ($hmm) = $file_name =~ /^$output\/intermediate_files\/Hmmsearch_Outputs\/(.+?\.hmm)\./; 
+        my ($hmm) = $file_name =~ /^$output\/intermediate_files\/Hmmsearch_Outputs\/(.+?\.hmm)\./;
 		$Hmm_id{$hmm} = 1;
 		my $gn_id = "";
         open INN, "$file_name";
@@ -313,13 +329,13 @@ while (<IN>){
                 if (!/^#/){
                         my $line = $_; $line =~ s/\s+/\t/g;
 						my @tmp = split (/\t/,$line); $gn_id = $Seqid2Genomeid{$tmp[0]};
-						my ($threshold,$score_type) = $Total_hmm2threshold{$hmm} =~ /^(.+?)\|(.+?)$/; 
+						my ($threshold,$score_type) = $Total_hmm2threshold{$hmm} =~ /^(.+?)\|(.+?)$/;
 						if ($score_type eq "domain"){
 							if ($tmp[8] >= $threshold){
-								my ($hmm_basename) = $hmm =~ /^(.+?)\.hmm/; 
+								my ($hmm_basename) = $hmm =~ /^(.+?)\.hmm/;
 								if (exists $Motif{$hmm_basename}){
-									my $seq; 
-									my $motif = $Motif{$hmm_basename}; $motif =~ s/X/\[ARNDCQEGHILKMFPSTWYV\]/g; 									
+									my $seq;
+									my $motif = $Motif{$hmm_basename}; $motif =~ s/X/\[ARNDCQEGHILKMFPSTWYV\]/g;
 									my %Seq_gn = _store_seq("$input_protein_folder/total.faa"); # Get the total genome sequences
 									$seq = $Seq_gn{">$tmp[0]"};
 									if ($seq =~ /$motif/){
@@ -333,10 +349,10 @@ while (<IN>){
 								}elsif(exists $Motif_pair{$hmm_basename}){
 									my $motif_hmm = "$METABOLIC_hmm_db_address/$hmm_basename.check.hmm";
 									my $motif_anti_hmm = "$METABOLIC_hmm_db_address/$Motif_pair{$hmm_basename}.check.hmm";
-									_get_1_from_input_faa("$input_protein_folder/total.faa",">$tmp[0]","$output/tmp.$hmm_basename.check.faa");								
+									_get_1_from_input_faa("$input_protein_folder/total.faa",">$tmp[0]","$output/tmp.$hmm_basename.check.faa");
 									`hmmsearch --cpu 1 --tblout $output/tmp.$hmm_basename.check.hmmsearch_result.txt $motif_hmm $output/tmp.$hmm_basename.check.faa`;
 									`hmmsearch --cpu 1 --tblout $output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt $motif_anti_hmm $output/tmp.$hmm_basename.check.faa`;
-									my $motif_check_score = _get_check_score("$output/tmp.$hmm_basename.check.hmmsearch_result.txt"); 
+									my $motif_check_score = _get_check_score("$output/tmp.$hmm_basename.check.hmmsearch_result.txt");
 									my $motif_anti_check_score = _get_check_score("$output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt");
 									if ($motif_check_score >= $motif_anti_check_score and $motif_check_score != 0){
 										if (! exists $Hmmscan_hits{$gn_id}{$hmm}){
@@ -346,7 +362,7 @@ while (<IN>){
 										}
 										$Hmmscan_result{$gn_id}{$hmm}++;
 									}
-									`rm $output/tmp.$hmm_basename.check.faa $output/tmp.$hmm_basename.check.hmmsearch_result.txt $output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt`;									
+									`rm $output/tmp.$hmm_basename.check.faa $output/tmp.$hmm_basename.check.hmmsearch_result.txt $output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt`;
 								}else{ # Do not have motif check step
 									if (! exists $Hmmscan_hits{$gn_id}{$hmm}){
 										$Hmmscan_hits{$gn_id}{$hmm} = $tmp[0];
@@ -357,10 +373,10 @@ while (<IN>){
 								}
 							}
 						}else{
-							my ($hmm_basename) = $hmm =~ /^(.+?)\.hmm/; 
+							my ($hmm_basename) = $hmm =~ /^(.+?)\.hmm/;
 							if (exists $Motif{$hmm_basename}){
 								my $seq; # the protein seq
-								my $motif = $Motif{$hmm_basename};  $motif =~ s/X/\[ARNDCQEGHILKMFPSTWYV\]/g; 		
+								my $motif = $Motif{$hmm_basename};  $motif =~ s/X/\[ARNDCQEGHILKMFPSTWYV\]/g;
 								my %Seq_gn = _store_seq("$input_protein_folder/total.faa"); # get the total genome sequences
 								$seq = $Seq_gn{">$tmp[0]"};
 								if ($seq =~ /$motif/){
@@ -377,7 +393,7 @@ while (<IN>){
 								_get_1_from_input_faa("$input_protein_folder/total.faa",">$tmp[0]","$output/tmp.$hmm_basename.check.faa");
 								`hmmsearch --cpu 1 --tblout $output/tmp.$hmm_basename.check.hmmsearch_result.txt $motif_hmm $output/tmp.$hmm_basename.check.faa`;
 								`hmmsearch --cpu 1 --tblout $output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt $motif_anti_hmm $output/tmp.$hmm_basename.check.faa`;
-								my $motif_check_score = _get_check_score("$output/tmp.$hmm_basename.check.hmmsearch_result.txt"); 
+								my $motif_check_score = _get_check_score("$output/tmp.$hmm_basename.check.hmmsearch_result.txt");
 								my $motif_anti_check_score = _get_check_score("$output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt");
 								if ($motif_check_score >= $motif_anti_check_score and $motif_check_score != 0){
 									if (! exists $Hmmscan_hits{$gn_id}{$hmm}){
@@ -396,16 +412,16 @@ while (<IN>){
 								}
 								$Hmmscan_result{$gn_id}{$hmm}++;
 							}
-						}						
+						}
                 }
         }
-        close INN;		
+        close INN;
 }
 close IN;
 
 `rm $input_protein_folder/total.faa`;
 
-$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime; 
+$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
 print "\[$datestring\] The hmm hit result is calculating...\n";
 
 # Print out hmm result each tsv file
@@ -433,9 +449,9 @@ foreach my $line_no (sort keys %Hmm_table_temp){
 		my @tmp = split(/\t/,$Hmm_table_temp{$line_no});
 		my $hmm = $tmp[5];
 		for(my $i=0; $i<=9; $i++){
-				push @Hmm_table_body_worksheet1, $tmp[($i+1)];				
+				push @Hmm_table_body_worksheet1, $tmp[($i+1)];
 		}
-		
+
 		foreach my $gn_id (sort keys %Genome_id){
 			my $hmm_presence = "Absent";
 			my $hit_num = 0;
@@ -443,14 +459,14 @@ foreach my $line_no (sort keys %Hmm_table_temp){
 			if ($hmm and $hmm !~ /\,\s/){
 				if ($Hmmscan_result{$gn_id}{$hmm}){
 					$hmm_presence = "Present";
-					push @Hits, $Hmmscan_hits{$gn_id}{$hmm}; 
+					push @Hits, $Hmmscan_hits{$gn_id}{$hmm};
 					$hit_num = $Hmmscan_result{$gn_id}{$hmm};
 				}else{
 					push @Hits, "None";
 				}
 			}elsif($hmm and $hmm =~ /\,\s/){
 				my @tmp = split (/\,\s/,$hmm);
-				my $sum = 0; 
+				my $sum = 0;
 				for(my $i=0; $i<=$#tmp; $i++){
 					if ($Hmmscan_result{$gn_id}{$tmp[$i]}){
 						$sum += $Hmmscan_result{$gn_id}{$tmp[$i]};
@@ -464,7 +480,7 @@ foreach my $line_no (sort keys %Hmm_table_temp){
 				}
 				$hit_num = $sum;
 			}
-			
+
 			push @Hmm_table_body_worksheet1,$hmm_presence;
 			push @Hmm_table_body_worksheet1,$hit_num;
 			push @Hmm_table_body_worksheet1,join("\;",@Hits);
@@ -490,13 +506,13 @@ foreach my $line_no (sort keys %Hmm_table_temp_2){
 	my @Hmm_table_body_worksheet2 = ();
 	my @tmp_table_2 = split(/\t/,$Hmm_table_temp_2{$line_no});
 	for(my $i=0; $i<=2; $i++){
-		push @Hmm_table_body_worksheet2, $tmp_table_2[($i+2)];			
+		push @Hmm_table_body_worksheet2, $tmp_table_2[($i+2)];
 	}
 	my $line_no_4_table_1 = $tmp_table_2[1];
-	
+
 	if ($line_no_4_table_1 !~ /\|\|/){
 		my @tmp_table_1 = split(/\t/,$Hmm_table_temp{$line_no_4_table_1});
-		my $hmm = $tmp_table_1[5];	
+		my $hmm = $tmp_table_1[5];
 		foreach my $gn_id (sort keys %Genome_id){
 			my $hmm_presence = "Absent";
 			if ($hmm and $hmm !~ /\,\s/){
@@ -515,8 +531,8 @@ foreach my $line_no (sort keys %Hmm_table_temp_2){
 					$hmm_presence = "Present";
 				}
 			}
-			push @Hmm_table_body_worksheet2,$hmm_presence;	
-		}		
+			push @Hmm_table_body_worksheet2,$hmm_presence;
+		}
 	}else{
 		my @array_line_no_4_table_1 = split (/\|\|/, $line_no_4_table_1);
 		my @array_hmm = ();
@@ -551,7 +567,7 @@ foreach my $line_no (sort keys %Hmm_table_temp_2){
 close OUT;
 
 # Print out each hmm faa collection
-$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime; 
+$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
 print "\[$datestring\] Generating each hmm faa collection...\n";
 
 `mkdir $output/Each_HMM_Amino_Acid_Sequence`;
@@ -560,15 +576,15 @@ foreach my $hmm (sort keys %Hmm_id){
 	my %Hmm_faa_seq = (); # Store the faa seqs in a hmm
 	my %Hmm_gene_seq = (); # Store the gene seqs in a hmm
 	foreach my $gn_id (sort keys %Hmmscan_hits){
-		if ($Hmmscan_hits{$gn_id}{$hmm}){			
+		if ($Hmmscan_hits{$gn_id}{$hmm}){
 			my @Hits = split (/\,/,$Hmmscan_hits{$gn_id}{$hmm});
 			foreach my $hit (@Hits){
 				my $seq_head = ">".$gn_id."~~".$hit;
 				if (exists $Total_faa_seq{$seq_head}){
-					$Hmm_faa_seq{$seq_head} = $Total_faa_seq{$seq_head}; 
+					$Hmm_faa_seq{$seq_head} = $Total_faa_seq{$seq_head};
 				}
 				if (exists $Total_gene_seq{$seq_head}){
-					$Hmm_gene_seq{$seq_head} = $Total_gene_seq{$seq_head}; 
+					$Hmm_gene_seq{$seq_head} = $Total_gene_seq{$seq_head};
 				}
 			}
 
@@ -581,21 +597,21 @@ foreach my $hmm (sort keys %Hmm_id){
 		}
 		close OUT;
 	}
-	
+
 	if (%Hmm_gene_seq){
 		open OUT, ">$output/Each_HMM_Amino_Acid_Sequence/$hmm.collection.gene";
 		foreach my $key (sort keys %Hmm_gene_seq){
 			print OUT "$key\n$Hmm_gene_seq{$key}\n";
 		}
 		close OUT;
-	}	
+	}
 }
 
-$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime; 
+$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
 print "\[$datestring\] Each hmm faa collection has been made\n";
 
 # Do the KEGG module calculating
-$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime; 
+$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
 print "\[$datestring\] The KEGG module result is calculating...\n";
 
 # Store the KEGG module table
@@ -610,7 +626,7 @@ while (<IN>){
 			$Cat2module{$head_cat2module} = "";
 		}
 	}elsif(/^D      /){
-		my ($tmp) = $_ =~ /^D      (M\d\d\d\d\d)/; 
+		my ($tmp) = $_ =~ /^D      (M\d\d\d\d\d)/;
 		if (! $Cat2module{$head_cat2module}){
 			$Cat2module{$head_cat2module} = $tmp;
 		}else{
@@ -634,7 +650,7 @@ while (<IN>){
 		my ($module,$step_num) = $tmp[2] =~ /^(M.+?)\+(.+?)$/;
 		$KEGG_module2step_number{$module} = int($step_num);
 		$KEGG_module2name{$module} = $tmp[0];
-	}	
+	}
 }
 close IN;
 
@@ -644,32 +660,32 @@ my %Hmm2ko = _get_hmm_2_KO_hash(%Hmm_table_temp); # like: TIGR02694.hmm => K0835
 # To see whether a module step exists for a given genome
 my %Module_step_result = (); # M00804+01 => genome id => 1 / 0
 foreach my $m_step (sort keys %KEGG_module){
-	foreach my $gn_id (sort keys %Genome_id){		
+	foreach my $gn_id (sort keys %Genome_id){
 		my $k_string = $KEGG_module{$m_step}[0];
 		my @ko_hits = (); # All the ko hits for this genome
 		foreach my $hmm (sort keys %Hmm_id){
 			my $hmm_new = ""; # transfer all the hmm id to ko id
 			if (exists $Hmm2ko{$hmm}){
-				$hmm_new = $Hmm2ko{$hmm}; 
+				$hmm_new = $Hmm2ko{$hmm};
 			}elsif (!exists $Hmm2ko{$hmm} and $hmm =~ /^K\d\d\d\d\d/){
-				$hmm_new = $hmm; 
+				$hmm_new = $hmm;
 			}
 			my $hmm_new_wo_ext =  "";
 			if ($hmm_new){
-				($hmm_new_wo_ext) = $hmm_new =~ /^(.+?)\.hmm/;		
+				($hmm_new_wo_ext) = $hmm_new =~ /^(.+?)\.hmm/;
 			}
 			if ($hmm_new_wo_ext and $Hmmscan_result{$gn_id}{$hmm}){
 				push @ko_hits, $hmm_new_wo_ext;
 			}
 		}
-		$Module_step_result{$m_step}{$gn_id} = _determine_module_step($k_string, @ko_hits); 
+		$Module_step_result{$m_step}{$gn_id} = _determine_module_step($k_string, @ko_hits);
 	}
 }
 
 my %Module_result = (); # M00804 => genome name => Absent / Present
 foreach my $module (sort keys  %KEGG_module2step_number){
 	foreach my $gn_id (sort keys %Genome_id){
-		my $present_no = 0; 		
+		my $present_no = 0;
 		foreach my $module_step (sort keys %Module_step_result){
 			if ($module_step =~ /$module/){
 				if ($Module_step_result{$module_step}{$gn_id}){
@@ -677,7 +693,7 @@ foreach my $module (sort keys  %KEGG_module2step_number){
 				}
 			}
 		}
-		
+
 		my $ratio = $present_no / $KEGG_module2step_number{$module};
 
 		if ($ratio >= $module_cutoff){
@@ -685,8 +701,8 @@ foreach my $module (sort keys  %KEGG_module2step_number){
 		}else{
 			$Module_result{$module}{$gn_id} = "Absent";
 		}
-		
-	}	
+
+	}
 }
 
 # Print worksheet3
@@ -751,20 +767,20 @@ foreach my $module_step (sort keys %Module_step_result){
 			$cat_4_module = $cat;
 		}
 	}
-	push @Worksheet4_body, $cat_4_module; 
+	push @Worksheet4_body, $cat_4_module;
 	foreach my $gn_id (sort keys %Genome_id){
 		my $module_step_presence = "Absent";
 		if ($Module_step_result{$module_step}{$gn_id}){
-			$module_step_presence = "Present"; 
+			$module_step_presence = "Present";
 		}
 		push @Worksheet4_body, $module_step_presence;
 	}
 	print OUT join("\t",@Worksheet4_body)."\n";
-	
+
 }
 close OUT;
 
-$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime; 
+$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
 print "\[$datestring\] The KEGG identifier \(KO id\) result is calculating...\n";
 
 # Print the KEGG KO hits
@@ -773,13 +789,13 @@ my %Hmmscan_hits_for_KO = (); # new gn id => KO => hits
 my %New_hmmid = (); # KOs (without extension) => 1
 
 foreach my $genome_name (sort keys %Hmmscan_result){
-	my $gn = $genome_name; 
+	my $gn = $genome_name;
 	foreach my $hmm (sort keys %Hmm_id){
 		my $hmm_new = ""; # Transfer all the hmm id to ko id
 		if (exists $Hmm2ko{$hmm}){
-			$hmm_new = $Hmm2ko{$hmm}; 
+			$hmm_new = $Hmm2ko{$hmm};
 		}elsif (!exists $Hmm2ko{$hmm} and $hmm =~ /^K\d\d\d\d\d/){
-			$hmm_new = $hmm; 
+			$hmm_new = $hmm;
 		}
 		my $hmm_new_wo_ext =  "";
 		if ($hmm_new){
@@ -787,7 +803,7 @@ foreach my $genome_name (sort keys %Hmmscan_result){
 			$Hmmscan_result_for_KO{$gn}{$hmm_new_wo_ext} = $Hmmscan_result{$genome_name}{$hmm};
 			$Hmmscan_hits_for_KO{$gn}{$hmm_new_wo_ext} = $Hmmscan_hits{$genome_name}{$hmm};
 		}
-		
+
 	}
 }
 
@@ -795,16 +811,16 @@ foreach my $genome_name (sort keys %Hmmscan_result){
 foreach my $gn_id (sort keys %Genome_id){
 	open OUT1, ">$output/KEGG_identifier_result/$gn_id.result.txt";
 	open OUT2, ">$output/KEGG_identifier_result/$gn_id.hits.txt";
-	foreach my $hmmid (sort keys %New_hmmid){	
+	foreach my $hmmid (sort keys %New_hmmid){
 		my $new_gn_id = $gn_id;
 		my $result = "";
 		if ($Hmmscan_result_for_KO{$new_gn_id}{$hmmid}){
-			$result = $Hmmscan_result_for_KO{$new_gn_id}{$hmmid}; 
+			$result = $Hmmscan_result_for_KO{$new_gn_id}{$hmmid};
 		}
 		print OUT1 "$hmmid\t$result\n";
 		my $hits = "";
 		if ($Hmmscan_hits_for_KO{$new_gn_id}{$hmmid}){
-			$hits = $Hmmscan_hits_for_KO{$new_gn_id}{$hmmid}; 
+			$hits = $Hmmscan_hits_for_KO{$new_gn_id}{$hmmid};
 		}
 		print OUT2 "$hmmid\t$hits\n";
 	}
@@ -812,12 +828,12 @@ foreach my $gn_id (sort keys %Genome_id){
 	close OUT2;
 }
 
-$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime; 
+$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
 print "\[$datestring\] The KEGG identifier \(KO id\) seaching result is finished\n";
 
 
-# Run the dbCAN 
-$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime; 
+# Run the dbCAN
+$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
 print "\[$datestring\] Searching CAZymes by dbCAN2...\n";
 
 `mkdir $output/intermediate_files/dbCAN2_Files`;
@@ -839,7 +855,7 @@ _run_parallel("$output/tmp_run_dbCAN2.sh", $cpu_numbers); `rm $output/tmp_run_db
 
 my %dbCANout = (); # genome => hmmid => number
 my %dbCANout2 = (); # genome => hmmid => hits
-my %Hmm_dbCAN2_id = (); # hmm => 1 
+my %Hmm_dbCAN2_id = (); # hmm => 1
 open IN, "ls $output/intermediate_files/dbCAN2_Files/*.dbCAN2.out.dm.ps |";
 while (<IN>)
 {
@@ -849,13 +865,13 @@ while (<IN>)
 	while (<INN>){
 	   if (/^GH|^PL/){
                my @tmp = split(/\t/,$_);
-               my ($hmmid) = $tmp[0] =~ /(\S+?)\.hmm/; 
+               my ($hmmid) = $tmp[0] =~ /(\S+?)\.hmm/;
 			   my ($hmmid_p1,$hmmid_p2) = $hmmid =~ /^(\D+?)(\d+)/;
 			   my $num=(sprintf "%03d", $hmmid_p2);
 			   $hmmid = $hmmid_p1.$num;
-			   $Hmm_dbCAN2_id{$hmmid} = 1; 
-               my ($name) = $tmp[2]; 
-               
+			   $Hmm_dbCAN2_id{$hmmid} = 1;
+               my ($name) = $tmp[2];
+
                $dbCANout{$gn_id}{$hmmid}++;
                if (!exists $dbCANout2{$gn_id}{$hmmid}){
                        $dbCANout2{$gn_id}{$hmmid} = $name;
@@ -868,7 +884,7 @@ while (<IN>)
 }
 close IN;
 
-$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime; 
+$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
 print "\[$datestring\] dbCAN2 searching is done\n";
 
 # Print worksheet5
@@ -887,25 +903,25 @@ print OUT join("\t",@Worksheet5_head)."\n";
 # Print the worksheet5 result
 foreach my $hmmid (sort keys %Hmm_dbCAN2_id){
 	my @Worksheet5_body = ();
-	push @Worksheet5_body,$hmmid;	
+	push @Worksheet5_body,$hmmid;
 	foreach my $gn_id (sort keys %Genome_id){
 		my $hit_num = 0;
 		if ($dbCANout{$gn_id}{$hmmid}){
-			$hit_num = $dbCANout{$gn_id}{$hmmid};	
+			$hit_num = $dbCANout{$gn_id}{$hmmid};
 		}
-		push @Worksheet5_body,$hit_num;	
+		push @Worksheet5_body,$hit_num;
 		my $hits = "None";
 		if ($dbCANout2{$gn_id}{$hmmid}){
-			$hits = $dbCANout2{$gn_id}{$hmmid}; 
+			$hits = $dbCANout2{$gn_id}{$hmmid};
 		}
-		push @Worksheet5_body,$hits;	
+		push @Worksheet5_body,$hits;
 	}
 	print OUT join("\t",@Worksheet5_body)."\n";
 }
 close OUT;
 
 # Run the MEROPS
-$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime; 
+$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
 print "\[$datestring\] Searching MEROPS peptidase...\n";
 
 `mkdir $output/intermediate_files/MEROPS_Files`;
@@ -930,14 +946,14 @@ while (<IN>){
 	if (/>/){
 		$_ =~ tr/\015//d;
 		my ($mer_id) = $_ =~ /^>(.+?)\s/;
-		$MEROPS_map{$mer_id} = $_; 
+		$MEROPS_map{$mer_id} = $_;
 	}
 }
 close IN;
 
 my %MEROPSout = (); # genome => hmmid => number
 my %MEROPSout2 = (); # genome => hmmid => hits
-my %MEROPSid = (); # merops_id => 1 
+my %MEROPSid = (); # merops_id => 1
 open IN, "ls $output/intermediate_files/MEROPS_Files/*.MEROPSout.m8 |";
 while (<IN>)
 {
@@ -945,9 +961,9 @@ while (<IN>)
 	my ($gn_id) = $file =~ /^$output\/intermediate_files\/MEROPS_Files\/(.+?)\.MEROPSout\.m8/;
     open INN, "$file";
 	while (<INN>){
-	   my @tmp = split(/\t/,$_); 
+	   my @tmp = split(/\t/,$_);
 	   my ($meropsid) = $MEROPS_map{$tmp[1]} =~ /\#(.+?)\#/; $MEROPSid{$meropsid} = 1;
-	   my ($name) = $tmp[0]; 
+	   my ($name) = $tmp[0];
 	   $MEROPSout{$gn_id}{$meropsid}++;
 	   if (!exists $MEROPSout2{$gn_id}{$meropsid}){
                 $MEROPSout2{$gn_id}{$meropsid} = $name;
@@ -959,7 +975,7 @@ while (<IN>)
 }
 close IN;
 
-$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime; 
+$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
 print "\[$datestring\] MEROPS peptidase searching is done\n";
 
 # Print worksheet6
@@ -982,14 +998,14 @@ foreach my $hmmid (sort keys %MEROPSid){
 	foreach my $gn_id (sort keys %Genome_id){
 		my $hit_num = 0;
 		if ($MEROPSout{$gn_id}{$hmmid}){
-			$hit_num = $MEROPSout{$gn_id}{$hmmid};	
+			$hit_num = $MEROPSout{$gn_id}{$hmmid};
 		}
-		push @Worksheet6_body, $hit_num;	
+		push @Worksheet6_body, $hit_num;
 		my $hits = "None";
 		if ($MEROPSout2{$gn_id}{$hmmid}){
-			$hits = $MEROPSout2{$gn_id}{$hmmid}; 
+			$hits = $MEROPSout2{$gn_id}{$hmmid};
 		}
-		push @Worksheet6_body, $hits;	
+		push @Worksheet6_body, $hits;
 	}
 	print OUT join("\t",@Worksheet6_body)."\n";
 }
@@ -998,11 +1014,11 @@ close OUT;
 `Rscript $METABOLIC_dir/create_excel_spreadsheet.R $output/METABOLIC_result_each_spreadsheet/ > /dev/null`;
 `mv METABOLIC_result.xlsx $output/METABOLIC_result.xlsx`;
 
-$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime; 
+$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
 print "\[$datestring\] METABOLIC table has been generated\n";
 
 # Draw element cycling diagrams
-$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime; 
+$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
 print "\[$datestring\] Drawing element cycling diagrams...\n";
 
 # Store R pathways
@@ -1055,10 +1071,10 @@ foreach my $gn (sort keys %Hmmscan_result){
 				my $logic1 = 0; my $logic2 = 0;
 				foreach my $hmm_id (sort keys %R_hmm_ids){
 					if ($hmms_1 =~ /$hmm_id/ and $Hmmscan_result{$gn}{$hmm_id}){
-						$logic1 = 1;	
+						$logic1 = 1;
 					}
 					if ($hmms_2 =~ /$hmm_id/ and $Hmmscan_result{$gn}{$hmm_id}){
-						$logic2 = 1;	
+						$logic2 = 1;
 					}
 				}
 				if ($logic1 and $logic2){
@@ -1068,11 +1084,11 @@ foreach my $gn (sort keys %Hmmscan_result){
 				my $logic1 = 0; my $logic2 = 1;
 				foreach my $hmm_id (sort keys %R_hmm_ids){
 					if ($hmms_1 =~ /$hmm_id/ and $Hmmscan_result{$gn}{$hmm_id}){
-						$logic1 = 1;	
-					}			
+						$logic1 = 1;
+					}
 					if ($hmms_2 =~ /$hmm_id/ and $Hmmscan_result{$gn}{$hmm_id}){  # if $hmms_2 contains $hmm_id , and the genome has $hmm_id hit(s), then it will be false (0)
-						$logic2 = 0;	
-					}		
+						$logic2 = 0;
+					}
 				}
 				if ($logic1 and $logic2){
 					$R_input{$key} = 1; $Total_R_input{$key}{$gn} = 1;
@@ -1080,18 +1096,18 @@ foreach my $gn (sort keys %Hmmscan_result){
 			}
 		}
 	}
-	
+
 	open OUT, ">$output/METABOLIC_Figures_Input/Nutrient_Cycling_Diagram_Input/$gn.R_input.txt";
 	foreach my $key (sort keys %R_input){
 		print OUT "$key\t$R_input{$key}\n";
-	}	
+	}
 	close OUT;
 }
 
 `Rscript $METABOLIC_dir/draw_biogeochemical_cycles.R $output/METABOLIC_Figures_Input/Nutrient_Cycling_Diagram_Input $output/Output FALSE > /dev/null`;
 `mv $output/Output/draw_biogeochem_cycles $output/METABOLIC_Figures/Nutrient_Cycling_Diagrams; rm -r $output/Output`;
 
-$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime; 
+$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
 print "\[$datestring\] Drawing element cycling diagrams finished\n";
 my $endtime = $datestring;
 my $duration = time - $starttime_raw;
@@ -1123,7 +1139,7 @@ Number of Threads: $cpu_numbers
 Prodigal Method: $prodigal_method
 KOfam DB: $kofam_db_size
 Module Cutoff Value: $module_cutoff
-Output directory: $output\n";	
+Output directory: $output\n";
 }
 close OUT;
 
@@ -1136,14 +1152,14 @@ sub parse_duration {
 
 # Input ko_list, return a result hash of threshold and score_type
 sub _get_kofam_db_KO_threshold{
-	my $list = $_[0]; 
+	my $list = $_[0];
 	my $prok_list = "";
 	if ($kofam_db_size eq "full"){
 		$prok_list = "$_[1]/prokaryote.hal";
 	}elsif ($kofam_db_size eq "small"){
 		$prok_list = "$_[1]/All_Module_KO_ids.txt";
-	} 	
-	my %result = ();	
+	}
+	my %result = ();
 	open IN, "$list";
 	while (<IN>){
 		chomp;
@@ -1159,15 +1175,15 @@ sub _get_kofam_db_KO_threshold{
 		}
 	}
 	close IN;
-	
+
 	my %Prok_list = ();
 	open IN, "$prok_list";
 	while (<IN>){
 		chomp;
 		$Prok_list{$_} = 1;
-	}	
+	}
 	close IN;
-	
+
 	foreach my $key (sort keys %result){
 		if (!$Prok_list{$key}){
 			delete $result{$key};
@@ -1195,7 +1211,7 @@ sub _get_hmm_2_KO_hash{
 			}
 		}
 	}
-	
+
 	foreach my $hmm (sort keys %result){
 		if ($result{$hmm} =~ /^K\d\d\d\d\d/){
 			$result2{$hmm} = $result{$hmm};
@@ -1206,7 +1222,7 @@ sub _get_hmm_2_KO_hash{
 
 # Input faa file, and output the seq hash
 sub _get_faa_seq{
-	my $file = $_[0]; 
+	my $file = $_[0];
 	my ($file_name) = $file =~ /^.+\/(.+?)\.faa/;
 	my %result = (); my $head = "";
 	open _IN, "$file";
@@ -1214,15 +1230,15 @@ sub _get_faa_seq{
 		chomp;
 		if (/>/){
 			if (/\s/){
-				my ($head_old) = $_ =~ /^>(.+?)\s/; 
+				my ($head_old) = $_ =~ /^>(.+?)\s/;
 				$head = ">".$file_name."~~".$head_old;
 			}else{
-				my ($head_old) = $_ =~ /^>(.+?)$/; 
+				my ($head_old) = $_ =~ /^>(.+?)$/;
 				$head = ">".$file_name."~~".$head_old;
 			}
 			$result{$head} = "";
 		}else{
-			$result{$head} .= $_; 
+			$result{$head} .= $_;
 			$result{$head} =~ s/\*$//g;
 		}
 	}
@@ -1231,7 +1247,7 @@ sub _get_faa_seq{
 }
 
 sub _get_gene_seq{
-	my $file = $_[0]; 
+	my $file = $_[0];
 	my ($file_name) = $file =~ /^.+\/(.+?)\.gene/;
 	my %result = (); my $head = "";
 	open _IN, "$file";
@@ -1239,15 +1255,15 @@ sub _get_gene_seq{
 		chomp;
 		if (/>/){
 			if (/\s/){
-				my ($head_old) = $_ =~ /^>(.+?)\s/; 
+				my ($head_old) = $_ =~ /^>(.+?)\s/;
 				$head = ">".$file_name."~~".$head_old;
 			}else{
-				my ($head_old) = $_ =~ /^>(.+?)$/; 
+				my ($head_old) = $_ =~ /^>(.+?)$/;
 				$head = ">".$file_name."~~".$head_old;
 			}
 			$result{$head} = "";
 		}else{
-			$result{$head} .= $_; 
+			$result{$head} .= $_;
 			$result{$head} =~ s/\*$//g;
 		}
 	}
@@ -1281,7 +1297,7 @@ sub _get_1_from_input_faa{
 	my $input_file = $_[0];
 	my $seq = $_[1];
 	my $output_file = $_[2];
-	my %Seq = (); my $head = "";	
+	my %Seq = (); my $head = "";
 	open IN_, "$input_file";
 	while (<IN_>){
 		chomp;
@@ -1298,10 +1314,10 @@ sub _get_1_from_input_faa{
 		}
 	}
 	close IN_;
-	
+
 	open OUT, ">$output_file";
 	print OUT "$seq\n$Seq{$seq}\n";
-	close OUT;	
+	close OUT;
 }
 
 sub _get_check_score{
@@ -1347,12 +1363,12 @@ sub _get_motif_pair{
 	}
 	close _IN;
 	return %Hash;
-} 
+}
 
 sub _run_parallel{
 	my $file = $_[0];
 	my $cpu_numbers_ = $_[1];
-	my @Runs; 
+	my @Runs;
 	open ___IN, $file;
 	while (<___IN>){
 		chomp;
@@ -1385,7 +1401,7 @@ sub _determine_module_step{
 
     # Evaluate the modified k_string as a boolean expression
     my $result = eval(sprintf('(%s)', $k_string));
-    
+
     if ($result){
 		return '1';
 	}else{
