@@ -307,19 +307,19 @@ while (<IN>){
 open OUT, ">$output/tmp_run_hmmsearch.sh";
 foreach my $hmm (sort keys %Total_hmm2threshold){
 	my ($threshold, $score_type) = $Total_hmm2threshold{$hmm} =~ /^(.+?)\|(.+?)$/;
+	my $report = "";
+	my $hmm_db_address = "";
 	if ($score_type eq "full"){
-		if ($hmm !~ /K\d\d\d\d\d/){
-			print OUT "hmmsearch -T $threshold --cpu 1 --tblout $output/intermediate_files/Hmmsearch_Outputs/$hmm.total.hmmsearch_result.txt $METABOLIC_hmm_db_address/$hmm $output/total.faa\n";
-		}else{
-			print OUT "hmmsearch -T $threshold --cpu 1 --tblout $output/intermediate_files/Hmmsearch_Outputs/$hmm.total.hmmsearch_result.txt $kofam_db_address/$hmm $output/total.faa\n";
-		}
+		$report = "-T";
 	}else{
-		if ($hmm !~ /K\d\d\d\d\d/){
-			print OUT "hmmsearch --domT $threshold --cpu 1 --tblout $output/intermediate_files/Hmmsearch_Outputs/$hmm.total.hmmsearch_result.txt $METABOLIC_hmm_db_address/$hmm $output/total.faa\n";
-		}else{
-			print OUT "hmmsearch --domT $threshold --cpu 1 --tblout $output/intermediate_files/Hmmsearch_Outputs/$hmm.total.hmmsearch_result.txt $kofam_db_address/$hmm $output/total.faa\n";
-		}
+		$report = "--domT";
 	}
+	if ($hmm !~ /K\d\d\d\d\d/){
+		$hmm_db_address = $METABOLIC_hmm_db_address;
+	}else{
+		$hmm_db_address = $kofam_db_address;
+	}
+	print OUT "hmmsearch $report $threshold --cpu 1 --tblout $output/intermediate_files/Hmmsearch_Outputs/$hmm.total.hmmsearch_result.txt $hmm_db_address/$hmm $output/total.faa\n";
 }
 close OUT;
 
