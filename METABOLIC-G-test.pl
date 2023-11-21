@@ -95,9 +95,6 @@ my $METABOLIC_dir = dirname(File::Spec->rel2abs(__FILE__));
 my $cpu_numbers = 20; # Parallel running cpu numbers
 my $module_cutoff = 0.75; # The cutoff value to assign the existence of a module
 my $input_protein_folder;  # Input microbial genome protein files
-my $input_genome_folder; # Input microbial genome fasta files
-#my $omic_reads_parameters; # The address of omic reads (Only applicable for METABOLIC-C)
-my $prodigal_method = "meta"; # The prodigal method to annotate orfs
 my $kofam_db_size = "full"; # The full kofam size
 my $output = `pwd`; # The output folder
 my $version="METABOLIC-G-test.pl v4.0-test-1";
@@ -106,8 +103,6 @@ GetOptions(
 	'cpu|t=i' => \$cpu_numbers,
 	'module-cutoff|m-cutoff=f' => \$module_cutoff,
 	'in=s' => \$input_protein_folder,
-	'in-gn=s' => \$input_genome_folder,
-	'prodigal-method|p=s' => \$prodigal_method,
 	'kofam-db=s' => \$kofam_db_size,
 	'output|o=s' => \$output
 ) or die("Getting options from the command line failed, please check your options");
@@ -231,20 +226,20 @@ my %Total_hmm2threshold = (%METABOLIC_hmm2threshold, _get_kofam_db_KO_threshold(
 # Total_hmm2threshold: dict[str, str] = type(METABOLIC_hmm2threshold)
 
 # Hmm_table_head: list[str] = [
-# 	"#Entry	Category",
-#   "Function",
-#   "Gene abbreviation",
-#   "Gene name",
-#   "Hmm file",
-#   "Corresponding KO",
-#   "Reaction",
-#   "Substrate",
-#   "Product",
-#   "Hmm detecting threshold"
-# ]
+ # 	"#Entry	Category",
+ #   "Function",
+ #   "Gene abbreviation",
+ #   "Gene name",
+ #   "Hmm file",
+ #   "Corresponding KO",
+ #   "Reaction",
+ #   "Substrate",
+ #   "Product",
+ #   "Hmm detecting threshold"
+ # ]
 # METABOLIC_hmm2threshold: dict[str, str]
-# 	key type string: "{genename,str}.hmm"
-# 	value type string: "{threshold,float}|{type,(full|domain)}"
+ # 	key type string: "{genename,str}.hmm"
+ # 	value type string: "{threshold,float}|{type,(full|domain)}"
 
 # Store the hmm table template 2
 my %Hmm_table_temp_2 = (); # line no. => each line;
@@ -275,30 +270,6 @@ die("0\n");
 
 `mkdir $output/intermediate_files`;
 
-if ($input_genome_folder){
-	open OUT, ">$output/tmp_run_annotate.sh";
-	open OUT2, ">$output/tmp_run_annotate.sh.2";
-	open IN, "ls $input_genome_folder/*.fasta |";
-	$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
-	print "\[$datestring\] The Prodigal annotation is running...\n";
-	while (<IN>){
-		chomp;
-		my ($gn_id) = $_ =~ /^$input_genome_folder\/(.+?)\.fasta/;
-		print OUT "prodigal -i $input_genome_folder/$gn_id.fasta -a $input_genome_folder/$gn_id.faa -o $input_genome_folder/$gn_id.gff -f gff -p $prodigal_method -q\n";
-		print OUT2 "perl $METABOLIC_dir/Accessory_scripts/gff2fasta_mdf.pl -g $input_genome_folder/$gn_id.gff -f $input_genome_folder/$gn_id.fasta -o $input_genome_folder/$gn_id.gene\n";
-	}
-	close IN;
-	close OUT;
-	close OUT2;
-
-	_run_parallel("$output/tmp_run_annotate.sh", $cpu_numbers); `rm $output/tmp_run_annotate.sh`;
-	_run_parallel("$output/tmp_run_annotate.sh.2", $cpu_numbers); `rm $output/tmp_run_annotate.sh.2`;
-
-	$input_protein_folder = $input_genome_folder;
-	$datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
-	print "\[$datestring\] The Prodigal annotation is finished\n";
-}
-
 my %Genome_id = (); # genome id => 1
 my %Seqid2Genomeid = (); # seq id => genome id
 my %Total_faa_seq = (); # Store the total faa file into a hash
@@ -311,9 +282,6 @@ while (<IN>){
 
 	# Store faa file into a hash
 	%Total_faa_seq = (%Total_faa_seq, _get_faa_seq($file));
-	if ($input_genome_folder){
-		%Total_gene_seq = (%Total_gene_seq, _get_gene_seq("$file_name\.gene"));
-	}
 
 	my ($gn_id) = $file =~ /^$input_protein_folder\/(.+?)\.faa/;
 	$Genome_id{$gn_id} = 1;
@@ -1171,19 +1139,6 @@ print "METABOLIC-G was done, the total running time: $duration (hh:mm:ss)\n";
 
 # Print information about this run:
 open OUT, ">$output/METABOLIC_run.log";
-if ($input_genome_folder){
-print OUT "$version
-Run Start: $statetime
-Run End: $endtime
-Total running time: $duration (hh:mm:ss)
-Input Reads: N/A
-Input Genome directory (nucleotides): $input_genome_folder
-Number of Threads: $cpu_numbers
-Prodigal Method: $prodigal_method
-KOfam DB: $kofam_db_size
-Module Cutoff Value: $module_cutoff
-Output directory: $output\n";
-}else{
 print OUT "$version
 Run Start: $statetime
 Run End: $endtime
@@ -1191,11 +1146,9 @@ Total running time: $duration (hh:mm:ss)
 Input Reads: N/A
 Input Genome directory (amino acids): $input_protein_folder
 Number of Threads: $cpu_numbers
-Prodigal Method: $prodigal_method
 KOfam DB: $kofam_db_size
 Module Cutoff Value: $module_cutoff
 Output directory: $output\n";
-}
 close OUT;
 
 
