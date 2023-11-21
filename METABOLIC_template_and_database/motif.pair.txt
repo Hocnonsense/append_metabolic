@@ -1,0 +1,6 @@
+dsrE:tusD
+dsrH:tusB
+dsrF:tusC
+amoA:pmoA
+amoB:pmoB
+amoC:pmoC
