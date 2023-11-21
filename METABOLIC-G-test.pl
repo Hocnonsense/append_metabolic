@@ -176,6 +176,60 @@ while (<IN>){
 }
 close IN;
 
+# Input ko_list, return a result hash of threshold and score_type
+sub _get_kofam_db_KO_threshold{
+	# """
+	# type: _[0]: str: path to KEGG KO threshold
+	# 		in this file: "kofam_database/ko_list"
+	# type: _[1]: str: path to file store which KO to be used
+	# global var: kofam_db_size: Literal["full", "small"]
+	# return: dict[str, str] = type(METABOLIC_hmm2threshold)
+	# """
+	my $list = $_[0]; # "kofam_database/ko_list"
+	my $prok_list = "";
+	if ($kofam_db_size eq "full"){
+		$prok_list = "$_[1]/prokaryote.hal";
+	}elsif ($kofam_db_size eq "small"){
+		$prok_list = "$_[1]/All_Module_KO_ids.txt";
+	}
+	# "kofam_database/profiles/All_Module_KO_ids.txt"
+	my %result = ();
+	open IN, "$list";
+	while (<IN>){
+		chomp;
+		if (/^K/){
+			my @tmp = split (/\t/);
+			my $hmm_id = "$tmp[0]\.hmm";
+			if ($tmp[1] eq "\-"){
+				$result{$hmm_id} = "50|full";
+			}else{
+				$result{$hmm_id} = "$tmp[1]|$tmp[2]";
+			}
+		}
+	}
+	close IN;
+
+	my %Prok_list = ();
+	open IN, "$prok_list";
+	while (<IN>){
+		chomp;
+		$Prok_list{$_} = 1;
+	}
+	close IN;
+
+	foreach my $key (sort keys %result){
+		if (!$Prok_list{$key}){
+			delete $result{$key};
+		}
+	}
+	return (%result);
+}
+# The hash of hmm file and corresponding threshold and score_type
+# TODO: use value in METABOLIC_hmm2threshold than in default value?
+my %Total_hmm2threshold = (%METABOLIC_hmm2threshold, _get_kofam_db_KO_threshold($kofam_db_KO_list,$kofam_db_address));
+
+# Total_hmm2threshold: dict[str, str] = type(METABOLIC_hmm2threshold)
+
 # Hmm_table_head: list[str] = [
 # 	"#Entry	Category",
 #   "Function",
@@ -210,11 +264,12 @@ close IN;
 # 		that is:
 # ["Function", "Entry", "Category", "Function", "Gene abbreviation"]
 
-# The hash of hmm file and corresponding threshold and score_type
-my %Total_hmm2threshold = (%METABOLIC_hmm2threshold, _get_kofam_db_KO_threshold($kofam_db_KO_list,$kofam_db_address));
-
-while((my $key, my $value) = each(%Total_hmm2threshold)){
-    print ">$key<: >$Total_hmm2threshold{$key}<\n";
+my %test_export = (
+	('a'=>'a'),
+	('a'=>'b'),
+);
+while ((my $key, my $value) = each(%test_export)){
+    print ">$key<: >$value<\n";
 }
 die("0\n");
 
@@ -1148,48 +1203,6 @@ close OUT;
 sub parse_duration {
     use integer;
     sprintf("%02d:%02d:%02d", $_[0]/3600, $_[0]/60%60, $_[0]%60);
-}
-
-# Input ko_list, return a result hash of threshold and score_type
-sub _get_kofam_db_KO_threshold{
-	my $list = $_[0];
-	my $prok_list = "";
-	if ($kofam_db_size eq "full"){
-		$prok_list = "$_[1]/prokaryote.hal";
-	}elsif ($kofam_db_size eq "small"){
-		$prok_list = "$_[1]/All_Module_KO_ids.txt";
-	}
-	my %result = ();
-	open IN, "$list";
-	while (<IN>){
-		chomp;
-		if (/^K/){
-			my @tmp = split (/\t/);
-			if ($tmp[1] eq "\-"){
-				my $hmm_id = "$tmp[0]\.hmm";
-				$result{$hmm_id} = "50|full";
-			}else{
-				my $hmm_id = "$tmp[0]\.hmm";
-				$result{$hmm_id} = "$tmp[1]|$tmp[2]";
-			}
-		}
-	}
-	close IN;
-
-	my %Prok_list = ();
-	open IN, "$prok_list";
-	while (<IN>){
-		chomp;
-		$Prok_list{$_} = 1;
-	}
-	close IN;
-
-	foreach my $key (sort keys %result){
-		if (!$Prok_list{$key}){
-			delete $result{$key};
-		}
-	}
-	return (%result);
 }
 
 # Input the hmm_table_temp hash, return a hmm to ko hash (like: TIGR02694.hmm => K08355.hmm)
