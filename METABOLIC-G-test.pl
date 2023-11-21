@@ -156,6 +156,7 @@ open STDERR, "| tee -ai $output/METABOLIC_log.log";
 my %Hmm_table_temp = (); # line no. => each line
 my @Hmm_table_head = (); # The head of the hmm table template
 my %METABOLIC_hmm2threshold = (); # hmm file id => threshold and score_type
+# "METABOLIC_template_and_database/hmm_table_template.txt"
 open IN, "$hmm_table_temp";
 while (<IN>){
 	chomp;
@@ -237,6 +238,10 @@ my %Total_hmm2threshold = (%METABOLIC_hmm2threshold, _get_kofam_db_KO_threshold(
  #   "Product",
  #   "Hmm detecting threshold"
  # ]
+# Hmm_table_temp: dict[str, str] = [
+ # 	key type string: "{entry_category,str}"
+ # 	value type string: "\t".join(Hmm_table_head)
+ # from METABOLIC_template_and_database/hmm_table_template.txt
 # METABOLIC_hmm2threshold: dict[str, str]
  # 	key type string: "{genename,str}.hmm"
  # 	value type string: "{threshold,float}|{type,(full|domain)}"
@@ -442,23 +447,13 @@ while (<IN>){
 }
 close IN;
 
-my %test_export = %Hmmscan_hits;
-foreach my $key (sort keys %test_export){
-    print ">$key<: >$test_export{$key}<\n";
-	my $test_export1 = $test_export{$key};
-	foreach my $key1 (sort keys %$test_export1){
-		print ">$key1<: >$test_export{$key}{$key1}<\n";
-	}
-}
-die("0\n");
-
 #`rm $output/total.faa`;
 
 $datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
 print "\[$datestring\] The hmm hit result is calculating...\n";
 
 # Print out hmm result each tsv file
-`mkdir $output/METABOLIC_result_each_spreadsheet`;
+`mkdir -p $output/METABOLIC_result_each_spreadsheet`;
 
 # Print worksheet1
 open OUT, ">$output/METABOLIC_result_each_spreadsheet/METABOLIC_result_worksheet1.tsv";
@@ -474,53 +469,80 @@ foreach my $gn_id (sort keys %Genome_id){
 }
 print OUT join("\t",@Hmm_table_head_worksheet1)."\n";
 
+# Hmm_table_head_worksheet1: list[str] = [
+# 	"Category",
+# 	"Function",
+# 	"Gene abbreviation",
+# 	"Gene name",
+# 	"Hmm file",
+# 	"Corresponding KO",
+# 	"Reaction",
+# 	"Substrate",
+# 	"Product",
+# 	"Hmm detecting threshold",
+# 	*[f"{i} {j}" for i in sorted("Genome_id") for j in ("Hmm presence", "Hit numbers", "Hits")]
+# ]
+
 # Print body
 foreach my $line_no (sort keys %Hmm_table_temp){
 	my $row = $line_no;
 	my @Hmm_table_body_worksheet1 = ();
+	# Hmm_table_body_worksheet1: list[str] = Hmm_table_temp[line_no].strip().split("\t")
 
-		my @tmp = split(/\t/,$Hmm_table_temp{$line_no});
-		my $hmm = $tmp[5];
-		for(my $i=0; $i<=9; $i++){
-				push @Hmm_table_body_worksheet1, $tmp[($i+1)];
-		}
+	my @tmp = split(/\t/,$Hmm_table_temp{$line_no});
+	my $hmm = $tmp[5];
+	# all 10 values are extracted from $Hmm_table_temp
+	for(my $i=0; $i<=9; $i++){
+		push @Hmm_table_body_worksheet1, $tmp[($i+1)];
+	}
 
-		foreach my $gn_id (sort keys %Genome_id){
-			my $hmm_presence = "Absent";
-			my $hit_num = 0;
-			my @Hits = ();
-			if ($hmm and $hmm !~ /\,\s/){
-				if ($Hmmscan_result{$gn_id}{$hmm}){
-					$hmm_presence = "Present";
-					push @Hits, $Hmmscan_hits{$gn_id}{$hmm};
-					$hit_num = $Hmmscan_result{$gn_id}{$hmm};
+	foreach my $gn_id (sort keys %Genome_id){
+		my $hmm_presence = "Absent";
+		my $hit_num = 0;
+		my @Hits = ();
+		if ($hmm and $hmm !~ /\,\s/){
+			if ($Hmmscan_result{$gn_id}{$hmm}){
+				$hmm_presence = "Present";
+				push @Hits, $Hmmscan_hits{$gn_id}{$hmm};
+				$hit_num = $Hmmscan_result{$gn_id}{$hmm};
+			}else{
+				push @Hits, "None";
+			}
+		} elsif ($hmm and $hmm =~ /\,\s/){
+			my @tmp = split (/\,\s/,$hmm);
+			my $sum = 0;
+			for(my $i=0; $i<=$#tmp; $i++){
+				if ($Hmmscan_result{$gn_id}{$tmp[$i]}){
+					$sum += $Hmmscan_result{$gn_id}{$tmp[$i]};
+					push @Hits, $Hmmscan_hits{$gn_id}{$tmp[$i]};
 				}else{
 					push @Hits, "None";
 				}
-			}elsif($hmm and $hmm =~ /\,\s/){
-				my @tmp = split (/\,\s/,$hmm);
-				my $sum = 0;
-				for(my $i=0; $i<=$#tmp; $i++){
-					if ($Hmmscan_result{$gn_id}{$tmp[$i]}){
-						$sum += $Hmmscan_result{$gn_id}{$tmp[$i]};
-						push @Hits, $Hmmscan_hits{$gn_id}{$tmp[$i]};
-					}else{
-						push @Hits, "None";
-					}
-				}
-				if ($sum){
-					$hmm_presence = "Present";
-				}
-				$hit_num = $sum;
 			}
-
-			push @Hmm_table_body_worksheet1,$hmm_presence;
-			push @Hmm_table_body_worksheet1,$hit_num;
-			push @Hmm_table_body_worksheet1,join("\;",@Hits);
+			if ($sum){
+				$hmm_presence = "Present";
+			}
+			$hit_num = $sum;
 		}
-		print OUT join("\t",@Hmm_table_body_worksheet1)."\n";
+
+		push @Hmm_table_body_worksheet1,$hmm_presence;
+		push @Hmm_table_body_worksheet1,$hit_num;
+		push @Hmm_table_body_worksheet1,join("\;",@Hits);
+	}
+	print OUT join("\t",@Hmm_table_body_worksheet1)."\n";
 }
 close OUT;
+
+print "@Hmm_table_head_worksheet1\n";
+die("0\n");
+#my %test_export = %Hmmscan_hits;
+#foreach my $key (sort keys %test_export){
+#    print ">$key<: >$test_export{$key}<\n";
+#	my $test_export1 = $test_export{$key};
+#	foreach my $key1 (sort keys %$test_export1){
+#		print ">$key1<: >$test_export{$key}{$key1}<\n";
+#	}
+#}
 
 # Print worksheet2
 open OUT, ">$output/METABOLIC_result_each_spreadsheet/METABOLIC_result_worksheet2.tsv";
