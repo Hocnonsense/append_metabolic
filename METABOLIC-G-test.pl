@@ -395,13 +395,8 @@ while (<IN>){
 						my $seq;
 						my $motif = $Motif{$hmm_basename}; $motif =~ s/X/\[ARNDCQEGHILKMFPSTWYV\]/g;
 						$seq = $Seq_gn{">$tmp[0]"};
-						if ($seq =~ /$motif/){
-							if (! exists $Hmmscan_hits{$gn_id}{$hmm}){
-								$Hmmscan_hits{$gn_id}{$hmm} = $tmp[0];
-							}else{
-								$Hmmscan_hits{$gn_id}{$hmm} .= "\,".$tmp[0];
-							}
-							$Hmmscan_result{$gn_id}{$hmm}++;
+						if (! $seq =~ /$motif/){
+							next;
 						}
 					}elsif(exists $Motif_pair{$hmm_basename}){
 						my $motif_hmm = "$METABOLIC_hmm_db_address/$hmm_basename.check.hmm";
@@ -411,23 +406,18 @@ while (<IN>){
 						#`hmmsearch --cpu 1 --tblout $output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt $motif_anti_hmm $output/tmp.$hmm_basename.check.faa`;
 						my $motif_check_score = _get_check_score("$output/tmp.$hmm_basename.check.hmmsearch_result.txt");
 						my $motif_anti_check_score = _get_check_score("$output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt");
-						if ($motif_check_score >= $motif_anti_check_score and $motif_check_score != 0){
-							if (! exists $Hmmscan_hits{$gn_id}{$hmm}){
-								$Hmmscan_hits{$gn_id}{$hmm} = $tmp[0];
-							}else{
-								$Hmmscan_hits{$gn_id}{$hmm} .= "\,".$tmp[0];
-							}
-							$Hmmscan_result{$gn_id}{$hmm}++;
+						if ($motif_check_score < $motif_anti_check_score or $motif_check_score == 0){
+							next;
 						}
 						#`rm $output/tmp.$hmm_basename.check.faa $output/tmp.$hmm_basename.check.hmmsearch_result.txt $output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt`;
-					}else{ # Do not have motif check step
-						if (! exists $Hmmscan_hits{$gn_id}{$hmm}){
-							$Hmmscan_hits{$gn_id}{$hmm} = $tmp[0];
-						}else{
-							$Hmmscan_hits{$gn_id}{$hmm} .= "\,".$tmp[0];
-						}
-						$Hmmscan_result{$gn_id}{$hmm}++;
 					}
+					# else Do not have motif check step
+					if (! exists $Hmmscan_hits{$gn_id}{$hmm}){
+						$Hmmscan_hits{$gn_id}{$hmm} = $tmp[0];
+					}else{
+						$Hmmscan_hits{$gn_id}{$hmm} .= "\,".$tmp[0];
+					}
+					$Hmmscan_result{$gn_id}{$hmm}++;
 				}
 			}else{
 				my ($hmm_basename) = $hmm =~ /^(.+?)\.hmm/;
@@ -435,13 +425,8 @@ while (<IN>){
 					my $seq; # the protein seq
 					my $motif = $Motif{$hmm_basename};  $motif =~ s/X/\[ARNDCQEGHILKMFPSTWYV\]/g;
 					$seq = $Seq_gn{">$tmp[0]"};
-					if ($seq =~ /$motif/){
-						if (! exists $Hmmscan_hits{$gn_id}{$hmm}){
-							$Hmmscan_hits{$gn_id}{$hmm} = $tmp[0];
-						}else{
-							$Hmmscan_hits{$gn_id}{$hmm} .= "\,".$tmp[0];
-						}
-						$Hmmscan_result{$gn_id}{$hmm}++;
+					if (! $seq =~ /$motif/){
+						next;
 					}
 				}elsif(exists $Motif_pair{$hmm_basename}){
 					my $motif_hmm = "$METABOLIC_hmm_db_address/$hmm_basename.check.hmm";
@@ -451,23 +436,18 @@ while (<IN>){
 					#`hmmsearch --cpu 1 --tblout $output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt $motif_anti_hmm $output/tmp.$hmm_basename.check.faa`;
 					my $motif_check_score = _get_check_score("$output/tmp.$hmm_basename.check.hmmsearch_result.txt");
 					my $motif_anti_check_score = _get_check_score("$output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt");
-					if ($motif_check_score >= $motif_anti_check_score and $motif_check_score != 0){
-						if (! exists $Hmmscan_hits{$gn_id}{$hmm}){
-							$Hmmscan_hits{$gn_id}{$hmm} = $tmp[0];
-						}else{
-							$Hmmscan_hits{$gn_id}{$hmm} .= "\,".$tmp[0];
+						if ($motif_check_score < $motif_anti_check_score or $motif_check_score == 0){
+							next;
 						}
-						$Hmmscan_result{$gn_id}{$hmm}++;
-					}
 					#`rm $output/tmp.$hmm_basename.check.faa $output/tmp.$hmm_basename.check.hmmsearch_result.txt $output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt`;
-				}else{
-					if (! exists $Hmmscan_hits{$gn_id}{$hmm}){
-						$Hmmscan_hits{$gn_id}{$hmm} = $tmp[0];
-					}else{
-						$Hmmscan_hits{$gn_id}{$hmm} .= "\,".$tmp[0];
-					}
-					$Hmmscan_result{$gn_id}{$hmm}++;
 				}
+				# else Do not have motif check step
+				if (! exists $Hmmscan_hits{$gn_id}{$hmm}){
+					$Hmmscan_hits{$gn_id}{$hmm} = $tmp[0];
+				}else{
+					$Hmmscan_hits{$gn_id}{$hmm} .= "\,".$tmp[0];
+				}
+				$Hmmscan_result{$gn_id}{$hmm}++;
 			}
 		}
 	}
@@ -476,10 +456,10 @@ while (<IN>){
 close IN;
 
 my %test_export = %Hmmscan_hits;
-foreach my $key (keys %test_export){
+foreach my $key (sort keys %test_export){
     print ">$key<: >$test_export{$key}<\n";
 	my $test_export1 = $test_export{$key};
-	foreach my $key1 (keys %$test_export1){
+	foreach my $key1 (sort keys %$test_export1){
 		print ">$key1<: >$test_export{$key}{$key1}<\n";
 	}
 }
