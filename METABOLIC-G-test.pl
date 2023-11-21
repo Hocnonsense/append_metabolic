@@ -259,21 +259,11 @@ close IN;
 # 		that is:
 # ["Function", "Entry", "Category", "Function", "Gene abbreviation"]
 
-my %test_export = (
-	('a'=>'a'),
-	('a'=>'b'),
-);
-while ((my $key, my $value) = each(%test_export)){
-    print ">$key<: >$value<\n";
-}
-die("0\n");
-
 `mkdir $output/intermediate_files`;
 
 my %Genome_id = (); # genome id => 1
-my %Seqid2Genomeid = (); # seq id => genome id
 my %Total_faa_seq = (); # Store the total faa file into a hash
-my %Total_gene_seq = (); # Store the total gene file into a hash
+my %Seqid2Genomeid = (); # seq id => genome id
 open IN,"ls $input_protein_folder/*.faa |";
 while (<IN>){
 	chomp;
@@ -300,8 +290,26 @@ while (<IN>){
 	close IN_;
 }
 
+# for i in Path("input.in_dir").glob("*.faa"):
+# 	genome_id = i.name.rsplit(".faa", 1)[0]
+# 	Genome_id[genome_id] = 1
+# Genome_id: dict[str, Literal[1]]
+# 	key type string: "{genome_id,str}" without .faa suffix
+# Seqid2Genomeid: dict[str, str]
+# 	key type string: "{gene_id,str}" without > prefix and anything after space
+# 	value type string: "{genome_id,str}" = type(Genome_id.key)
+# Total_faa_seq: dict[str, AaSeq]
+# 	key type string: "{modified_gene_id,{genome_id}~~{gene_id}}"
+
 open OUT, ">$output/tmp_run_hmmsearch.sh";
-`cat $input_protein_folder/*.faa > $input_protein_folder/faa.total; mv $input_protein_folder/faa.total $input_protein_folder/total.faa`;
+`cat $input_protein_folder/*.faa > $input_protein_folder/faa.total`;
+`mv $input_protein_folder/faa.total $input_protein_folder/total.faa`;
+
+my %test_export = %Total_faa_seq;
+while ((my $key, my $value) = each(%test_export)){
+    print ">$key<: >$value<\n";
+}
+die("0\n");
 
 `mkdir $output/intermediate_files/Hmmsearch_Outputs`;
 foreach my $hmm (sort keys %Total_hmm2threshold){
@@ -605,9 +613,6 @@ foreach my $hmm (sort keys %Hmm_id){
 				my $seq_head = ">".$gn_id."~~".$hit;
 				if (exists $Total_faa_seq{$seq_head}){
 					$Hmm_faa_seq{$seq_head} = $Total_faa_seq{$seq_head};
-				}
-				if (exists $Total_gene_seq{$seq_head}){
-					$Hmm_gene_seq{$seq_head} = $Total_gene_seq{$seq_head};
 				}
 			}
 
