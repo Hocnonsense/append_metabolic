@@ -263,6 +263,7 @@ close IN;
 # 	value type string: "the line in file"
 # 		that is:
 # ["Function", "Entry", "Category", "Function", "Gene abbreviation"]
+# 	in which, Hmm_table_temp_2.Entry refers to Hmm_table_head.`#Entry`
 
 `mkdir -p $output/intermediate_files`;
 
@@ -470,16 +471,7 @@ foreach my $gn_id (sort keys %Genome_id){
 print OUT join("\t",@Hmm_table_head_worksheet1)."\n";
 
 # Hmm_table_head_worksheet1: list[str] = [
-# 	"Category",
-# 	"Function",
-# 	"Gene abbreviation",
-# 	"Gene name",
-# 	"Hmm file",
-# 	"Corresponding KO",
-# 	"Reaction",
-# 	"Substrate",
-# 	"Product",
-# 	"Hmm detecting threshold",
+# 	*Hmm_table_head[1:],
 # 	*[f"{i} {j}" for i in sorted("Genome_id") for j in ("Hmm presence", "Hit numbers", "Hits")]
 # ]
 
@@ -496,21 +488,21 @@ foreach my $line_no (sort keys %Hmm_table_temp){
 	}
 
 	my $hmm = $tmp[5];
-	my @hmms = ();
+	my @array_hmm = ();
 	if ($hmm and $hmm !~ /\,\s/){
-		@hmms = ($hmm);
+		@array_hmm = ($hmm);
 	} elsif ($hmm and $hmm =~ /\,\s/){
-		@hmms = split (/\,\s/,$hmm);
+		@array_hmm = split (/\,\s/,$hmm);
 	}
 	foreach my $gn_id (sort keys %Genome_id){
 		my $hmm_presence = "Absent";
 		my $hit_num = 0;
 
 		my @Hits = ();
-		for(my $i=0; $i<=$#hmms; $i++){
-			if ($Hmmscan_result{$gn_id}{$hmms[$i]}){
-				$hit_num += $Hmmscan_result{$gn_id}{$hmms[$i]};
-				push @Hits, $Hmmscan_hits{$gn_id}{$hmms[$i]};
+		foreach my $hmm (@array_hmm){
+			if ($Hmmscan_result{$gn_id}{$hmm}){
+				$hit_num += $Hmmscan_result{$gn_id}{$hmm};
+				push @Hits, $Hmmscan_hits{$gn_id}{$hmm};
 			}else{
 				push @Hits, "None";
 			}
@@ -526,17 +518,6 @@ foreach my $line_no (sort keys %Hmm_table_temp){
 	print OUT join("\t",@Hmm_table_body_worksheet1)."\n";
 }
 close OUT;
-
-print "@Hmm_table_head_worksheet1\n";
-die("0\n");
-#my %test_export = %Hmmscan_hits;
-#foreach my $key (sort keys %test_export){
-#    print ">$key<: >$test_export{$key}<\n";
-#	my $test_export1 = $test_export{$key};
-#	foreach my $key1 (sort keys %$test_export1){
-#		print ">$key1<: >$test_export{$key}{$key1}<\n";
-#	}
-#}
 
 # Print worksheet2
 open OUT, ">$output/METABOLIC_result_each_spreadsheet/METABOLIC_result_worksheet2.tsv";
@@ -554,66 +535,59 @@ print OUT join("\t",@Hmm_table_head_worksheet2)."\n";
 foreach my $line_no (sort keys %Hmm_table_temp_2){
 	my @Hmm_table_body_worksheet2 = ();
 	my @tmp_table_2 = split(/\t/,$Hmm_table_temp_2{$line_no});
-	for(my $i=0; $i<=2; $i++){
+	# "Entry", "Category"
+	for (my $i=0; $i<=2; $i++) {
 		push @Hmm_table_body_worksheet2, $tmp_table_2[($i+2)];
 	}
 	my $line_no_4_table_1 = $tmp_table_2[1];
 
+	my @array_hmm = ();
+	my @array_line_no_4_table_1 = ();
 	if ($line_no_4_table_1 !~ /\|\|/){
+		@array_line_no_4_table_1 = ($line_no_4_table_1);
+	} else {
+		@array_line_no_4_table_1 = split (/\|\|/, $line_no_4_table_1);
+	}
+	foreach my $line_no_4_table_1 (@array_line_no_4_table_1){
 		my @tmp_table_1 = split(/\t/,$Hmm_table_temp{$line_no_4_table_1});
 		my $hmm = $tmp_table_1[5];
-		foreach my $gn_id (sort keys %Genome_id){
-			my $hmm_presence = "Absent";
-			if ($hmm and $hmm !~ /\,\s/){
-				if ($Hmmscan_result{$gn_id}{$hmm}){
-					$hmm_presence = "Present";
-				}
-			}elsif($hmm and $hmm =~ /\,\s/){
-				my @tmp = split (/\,\s/,$hmm);
-				my $sum = 0; my @array_hit_num = ();
-				for(my $i=0; $i<=$#tmp; $i++){
-					if ($Hmmscan_result{$gn_id}{$tmp[$i]}){
-						$sum += $Hmmscan_result{$gn_id}{$tmp[$i]};
-					}
-				}
-				if ($sum){
-					$hmm_presence = "Present";
-				}
-			}
-			push @Hmm_table_body_worksheet2,$hmm_presence;
-		}
-	}else{
-		my @array_line_no_4_table_1 = split (/\|\|/, $line_no_4_table_1);
-		my @array_hmm = ();
-		foreach my $line_no_4_table_1 (@array_line_no_4_table_1){
-			my @tmp_table_1 = split(/\t/,$Hmm_table_temp{$line_no_4_table_1});
-			my $hmm = $tmp_table_1[5];
-			if ($hmm and $hmm !~ /\,\s/){
-				push @array_hmm, $hmm;
-			}elsif($hmm and $hmm =~ /\,\s/){
-				my @tmp = split (/\,\s/,$hmm);
-				foreach my $key (@tmp){
-					push @array_hmm, $key;
-				}
+		if ($hmm and $hmm !~ /\,\s/){
+			push @array_hmm, $hmm;
+		} elsif ($hmm and $hmm =~ /\,\s/){
+			my @tmp = split (/\,\s/,$hmm);
+			foreach my $key (@tmp){
+				push @array_hmm, $key;
 			}
 		}
-		foreach my $gn_id (sort keys %Genome_id){
-			my $hmm_presence = "Absent";
-			my $sum = 0;
-			foreach my $hmm (@array_hmm){
-				if ($Hmmscan_result{$gn_id}{$hmm}){
-					$sum += $Hmmscan_result{$gn_id}{$hmm};
-				}
+	}
+
+	foreach my $gn_id (sort keys %Genome_id){
+		my $hmm_presence = "Absent";
+		my $sum = 0;
+		foreach my $hmm (@array_hmm){
+			if ($Hmmscan_result{$gn_id}{$hmm}){
+				$sum += $Hmmscan_result{$gn_id}{$hmm};
 			}
-			if ($sum){
-				$hmm_presence = "Present";
-			}
-			push @Hmm_table_body_worksheet2,$hmm_presence;
 		}
+		if ($sum){
+			$hmm_presence = "Present";
+		}
+		push @Hmm_table_body_worksheet2, $hmm_presence;
 	}
 	print OUT join("\t",@Hmm_table_body_worksheet2)."\n";
 }
 close OUT;
+
+print "@Hmm_table_head_worksheet2\n";
+die("0\n");
+#my %test_export = %Hmmscan_hits;
+#foreach my $key (sort keys %test_export){
+#    print ">$key<: >$test_export{$key}<\n";
+#	my $test_export1 = $test_export{$key};
+#	foreach my $key1 (sort keys %$test_export1){
+#		print ">$key1<: >$test_export{$key}{$key1}<\n";
+#	}
+#}
 
 # Print out each hmm faa collection
 $datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
@@ -1196,7 +1170,7 @@ sub _get_hmm_2_KO_hash{
 			my @array_hmm = split (/\; /, $hmm);
 			my @array_ko = split (/\; /, $ko);
 			for(my $i=0; $i<=$#array_hmm; $i++){
-				$result{$array_hmm[$i]} = $array_ko[$i]."\.hmm";
+				$result{$hmm} = $array_ko[$i]."\.hmm";
 			}
 		}
 	}
