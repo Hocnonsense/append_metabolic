@@ -375,7 +375,6 @@ my %Motif_pair = _get_motif_pair($motif_pair_file); # dsrC => tusE
 # 	key type string: "{gene_name,str}"
 # 	value type string: "{gene_name,str}"
 
-
 # Summarize hmmsearch result and print table
 my %Hmmscan_result = (); # genome_name => hmm => numbers
 my %Hmmscan_hits = (); # genome_name => hmm => hits
@@ -578,17 +577,6 @@ foreach my $line_no (sort keys %Hmm_table_temp_2){
 }
 close OUT;
 
-print "@Hmm_table_head_worksheet2\n";
-die("0\n");
-#my %test_export = %Hmmscan_hits;
-#foreach my $key (sort keys %test_export){
-#    print ">$key<: >$test_export{$key}<\n";
-#	my $test_export1 = $test_export{$key};
-#	foreach my $key1 (sort keys %$test_export1){
-#		print ">$key1<: >$test_export{$key}{$key1}<\n";
-#	}
-#}
-
 # Print out each hmm faa collection
 $datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
 print "\[$datestring\] Generating each hmm faa collection...\n";
@@ -597,10 +585,9 @@ print "\[$datestring\] Generating each hmm faa collection...\n";
 
 foreach my $hmm (sort keys %Hmm_id){
 	my %Hmm_faa_seq = (); # Store the faa seqs in a hmm
-	my %Hmm_gene_seq = (); # Store the gene seqs in a hmm
 	foreach my $gn_id (sort keys %Hmmscan_hits){
 		if ($Hmmscan_hits{$gn_id}{$hmm}){
-			my @Hits = split (/\,/,$Hmmscan_hits{$gn_id}{$hmm});
+			my @Hits = split (/\,/, $Hmmscan_hits{$gn_id}{$hmm});
 			foreach my $hit (@Hits){
 				my $seq_head = ">".$gn_id."~~".$hit;
 				if (exists $Total_faa_seq{$seq_head}){
@@ -617,15 +604,18 @@ foreach my $hmm (sort keys %Hmm_id){
 		}
 		close OUT;
 	}
-
-	if (%Hmm_gene_seq){
-		open OUT, ">$output/Each_HMM_Amino_Acid_Sequence/$hmm.collection.gene";
-		foreach my $key (sort keys %Hmm_gene_seq){
-			print OUT "$key\n$Hmm_gene_seq{$key}\n";
-		}
-		close OUT;
-	}
 }
+
+print "@Hmm_table_head_worksheet2\n";
+die("0\n");
+#my %test_export = %Hmmscan_hits;
+#foreach my $key (sort keys %test_export){
+#    print ">$key<: >$test_export{$key}<\n";
+#	my $test_export1 = $test_export{$key};
+#	foreach my $key1 (sort keys %$test_export1){
+#		print ">$key1<: >$test_export{$key}{$key1}<\n";
+#	}
+#}
 
 $datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
 print "\[$datestring\] Each hmm faa collection has been made\n";
