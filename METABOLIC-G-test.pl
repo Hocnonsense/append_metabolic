@@ -327,6 +327,7 @@ close OUT;
  $datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
  print "\[$datestring\] The hmmsearch is running with $cpu_numbers cpu threads...\n";
  # TODO: not rerun
+ #@MASK_IN_PERL
  #_run_parallel("$output/tmp_run_hmmsearch.sh", $cpu_numbers); `rm $output/tmp_run_hmmsearch.sh`;
  $datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
  print "\[$datestring\] The hmmsearch is finished\n";
@@ -380,75 +381,61 @@ while (<IN>){
 	my $file_name = $_;
 	my ($hmm) = $file_name =~ /^$output\/intermediate_files\/Hmmsearch_Outputs\/(.+?\.hmm)\./;
 	$Hmm_id{$hmm} = 1;
+	my ($threshold,$score_type) = $Total_hmm2threshold{$hmm} =~ /^(.+?)\|(.+?)$/;
 	my $gn_id = "";
 	open INN, "$file_name";
 	while (<INN>){
 		chomp;
 		if (!/^#/){
 			my $line = $_; $line =~ s/\s+/\t/g;
-			my @tmp = split (/\t/,$line); $gn_id = $Seqid2Genomeid{$tmp[0]};
-			my ($threshold,$score_type) = $Total_hmm2threshold{$hmm} =~ /^(.+?)\|(.+?)$/;
-			if ($score_type eq "domain"){
-				if ($tmp[8] >= $threshold){
-					my ($hmm_basename) = $hmm =~ /^(.+?)\.hmm/;
-					if (exists $Motif{$hmm_basename}){
-						my $seq;
-						my $motif = $Motif{$hmm_basename}; $motif =~ s/X/\[ARNDCQEGHILKMFPSTWYV\]/g;
-						$seq = $Seq_gn{">$tmp[0]"};
-						if (! $seq =~ /$motif/){
-							next;
-						}
-					}elsif(exists $Motif_pair{$hmm_basename}){
-						my $motif_hmm = "$METABOLIC_hmm_db_address/$hmm_basename.check.hmm";
-						my $motif_anti_hmm = "$METABOLIC_hmm_db_address/$Motif_pair{$hmm_basename}.check.hmm";
-						_get_1_from_input_faa(">$tmp[0]", $Seq_gn{">$tmp[0]"}, "$output/tmp.$hmm_basename.check.faa");
-						#`hmmsearch --cpu 1 --tblout $output/tmp.$hmm_basename.check.hmmsearch_result.txt $motif_hmm $output/tmp.$hmm_basename.check.faa`;
-						#`hmmsearch --cpu 1 --tblout $output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt $motif_anti_hmm $output/tmp.$hmm_basename.check.faa`;
-						my $motif_check_score = _get_check_score("$output/tmp.$hmm_basename.check.hmmsearch_result.txt");
-						my $motif_anti_check_score = _get_check_score("$output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt");
-						if ($motif_check_score < $motif_anti_check_score or $motif_check_score == 0){
-							next;
-						}
-						#`rm $output/tmp.$hmm_basename.check.faa $output/tmp.$hmm_basename.check.hmmsearch_result.txt $output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt`;
-					}
-					# else Do not have motif check step
-					if (! exists $Hmmscan_hits{$gn_id}{$hmm}){
-						$Hmmscan_hits{$gn_id}{$hmm} = $tmp[0];
-					}else{
-						$Hmmscan_hits{$gn_id}{$hmm} .= "\,".$tmp[0];
-					}
-					$Hmmscan_result{$gn_id}{$hmm}++;
+			my @tmp = split (/\t/,$line);
+			# temp: list[str] = [
+			# 	"target name",
+			#   "accession",
+			#   "query name",
+			#   "accession",
+			#   *["E-value", "score", "bias"], # full sequence
+			#   *["E-value", "score", "bias"], # best 1 domain
+			#   *["exp", "reg", "clu", "ov", "env", "dom", "rep", "inc"], # domain number estimation
+			#   "description of target",
+			# ]
+			$gn_id = $Seqid2Genomeid{$tmp[0]};
+			if (
+				! (
+					(($score_type eq "domain") and ($tmp[8] >= $threshold)) or
+					(($score_type eq "full") and ($tmp[5] >= $threshold))
+				)
+			){
+				next;
+			}
+			my ($hmm_basename) = $hmm =~ /^(.+?)\.hmm/;
+			if (exists $Motif{$hmm_basename}){
+				my $motif = $Motif{$hmm_basename}; $motif =~ s/X/\[ARNDCQEGHILKMFPSTWYV\]/g;
+				my $seq = $Seq_gn{">$tmp[0]"};
+				if (! $seq =~ /$motif/){
+					next;
 				}
-			}else{
-				my ($hmm_basename) = $hmm =~ /^(.+?)\.hmm/;
-				if (exists $Motif{$hmm_basename}){
-					my $seq; # the protein seq
-					my $motif = $Motif{$hmm_basename};  $motif =~ s/X/\[ARNDCQEGHILKMFPSTWYV\]/g;
-					$seq = $Seq_gn{">$tmp[0]"};
-					if (! $seq =~ /$motif/){
+			} elsif (exists $Motif_pair{$hmm_basename}){
+				my $motif_hmm = "$METABOLIC_hmm_db_address/$hmm_basename.check.hmm";
+				my $motif_anti_hmm = "$METABOLIC_hmm_db_address/$Motif_pair{$hmm_basename}.check.hmm";
+				_get_1_from_input_faa(">$tmp[0]", $Seq_gn{">$tmp[0]"}, "$output/tmp.$hmm_basename.check.faa");
+				#@MASK_IN_PERL
+				#`hmmsearch --cpu 1 --tblout $output/tmp.$hmm_basename.check.hmmsearch_result.txt $motif_hmm $output/tmp.$hmm_basename.check.faa`;
+				#`hmmsearch --cpu 1 --tblout $output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt $motif_anti_hmm $output/tmp.$hmm_basename.check.faa`;
+				my $motif_check_score = _get_check_score("$output/tmp.$hmm_basename.check.hmmsearch_result.txt");
+				my $motif_anti_check_score = _get_check_score("$output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt");
+					if ($motif_check_score < $motif_anti_check_score or $motif_check_score == 0){
 						next;
 					}
-				}elsif(exists $Motif_pair{$hmm_basename}){
-					my $motif_hmm = "$METABOLIC_hmm_db_address/$hmm_basename.check.hmm";
-					my $motif_anti_hmm = "$METABOLIC_hmm_db_address/$Motif_pair{$hmm_basename}.check.hmm";
-					_get_1_from_input_faa(">$tmp[0]", $Seq_gn{">$tmp[0]"}, "$output/tmp.$hmm_basename.check.faa");
-					#`hmmsearch --cpu 1 --tblout $output/tmp.$hmm_basename.check.hmmsearch_result.txt $motif_hmm $output/tmp.$hmm_basename.check.faa`;
-					#`hmmsearch --cpu 1 --tblout $output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt $motif_anti_hmm $output/tmp.$hmm_basename.check.faa`;
-					my $motif_check_score = _get_check_score("$output/tmp.$hmm_basename.check.hmmsearch_result.txt");
-					my $motif_anti_check_score = _get_check_score("$output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt");
-						if ($motif_check_score < $motif_anti_check_score or $motif_check_score == 0){
-							next;
-						}
-					#`rm $output/tmp.$hmm_basename.check.faa $output/tmp.$hmm_basename.check.hmmsearch_result.txt $output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt`;
-				}
-				# else Do not have motif check step
-				if (! exists $Hmmscan_hits{$gn_id}{$hmm}){
-					$Hmmscan_hits{$gn_id}{$hmm} = $tmp[0];
-				}else{
-					$Hmmscan_hits{$gn_id}{$hmm} .= "\,".$tmp[0];
-				}
-				$Hmmscan_result{$gn_id}{$hmm}++;
+				#`rm $output/tmp.$hmm_basename.check.faa $output/tmp.$hmm_basename.check.hmmsearch_result.txt $output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt`;
 			}
+			# else Do not have motif check step
+			if (! exists $Hmmscan_hits{$gn_id}{$hmm}){
+				$Hmmscan_hits{$gn_id}{$hmm} = $tmp[0];
+			} else {
+				$Hmmscan_hits{$gn_id}{$hmm} .= "\,".$tmp[0];
+			}
+			$Hmmscan_result{$gn_id}{$hmm}++;
 		}
 	}
 	close INN;
