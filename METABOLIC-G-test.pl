@@ -380,104 +380,115 @@ my %Hmmscan_hits = (); # genome_name => hmm => hits
 my %Hmm_id = (); # hmm => 1
 open IN, "find $output/intermediate_files/Hmmsearch_Outputs -type f -name '*.hmmsearch_result.txt' | ";
 while (<IN>){
-        chomp;
-        my $file_name = $_;
-        my ($hmm) = $file_name =~ /^$output\/intermediate_files\/Hmmsearch_Outputs\/(.+?\.hmm)\./;
-		$Hmm_id{$hmm} = 1;
-		my $gn_id = "";
-        open INN, "$file_name";
-        while (<INN>){
-                chomp;
-                if (!/^#/){
-                        my $line = $_; $line =~ s/\s+/\t/g;
-						my @tmp = split (/\t/,$line); $gn_id = $Seqid2Genomeid{$tmp[0]};
-						my ($threshold,$score_type) = $Total_hmm2threshold{$hmm} =~ /^(.+?)\|(.+?)$/;
-						if ($score_type eq "domain"){
-							if ($tmp[8] >= $threshold){
-								my ($hmm_basename) = $hmm =~ /^(.+?)\.hmm/;
-								if (exists $Motif{$hmm_basename}){
-									my $seq;
-									my $motif = $Motif{$hmm_basename}; $motif =~ s/X/\[ARNDCQEGHILKMFPSTWYV\]/g;
-									my %Seq_gn = _store_seq("$output/total.faa"); # Get the total genome sequences
-									$seq = $Seq_gn{">$tmp[0]"};
-									if ($seq =~ /$motif/){
-										if (! exists $Hmmscan_hits{$gn_id}{$hmm}){
-											$Hmmscan_hits{$gn_id}{$hmm} = $tmp[0];
-										}else{
-											$Hmmscan_hits{$gn_id}{$hmm} .= "\,".$tmp[0];
-										}
-										$Hmmscan_result{$gn_id}{$hmm}++;
-									}
-								}elsif(exists $Motif_pair{$hmm_basename}){
-									my $motif_hmm = "$METABOLIC_hmm_db_address/$hmm_basename.check.hmm";
-									my $motif_anti_hmm = "$METABOLIC_hmm_db_address/$Motif_pair{$hmm_basename}.check.hmm";
-									_get_1_from_input_faa("$output/total.faa",">$tmp[0]","$output/tmp.$hmm_basename.check.faa");
-									`hmmsearch --cpu 1 --tblout $output/tmp.$hmm_basename.check.hmmsearch_result.txt $motif_hmm $output/tmp.$hmm_basename.check.faa`;
-									`hmmsearch --cpu 1 --tblout $output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt $motif_anti_hmm $output/tmp.$hmm_basename.check.faa`;
-									my $motif_check_score = _get_check_score("$output/tmp.$hmm_basename.check.hmmsearch_result.txt");
-									my $motif_anti_check_score = _get_check_score("$output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt");
-									if ($motif_check_score >= $motif_anti_check_score and $motif_check_score != 0){
-										if (! exists $Hmmscan_hits{$gn_id}{$hmm}){
-											$Hmmscan_hits{$gn_id}{$hmm} = $tmp[0];
-										}else{
-											$Hmmscan_hits{$gn_id}{$hmm} .= "\,".$tmp[0];
-										}
-										$Hmmscan_result{$gn_id}{$hmm}++;
-									}
-									`rm $output/tmp.$hmm_basename.check.faa $output/tmp.$hmm_basename.check.hmmsearch_result.txt $output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt`;
-								}else{ # Do not have motif check step
-									if (! exists $Hmmscan_hits{$gn_id}{$hmm}){
-										$Hmmscan_hits{$gn_id}{$hmm} = $tmp[0];
-									}else{
-										$Hmmscan_hits{$gn_id}{$hmm} .= "\,".$tmp[0];
-									}
-									$Hmmscan_result{$gn_id}{$hmm}++;
-								}
-							}
-						}else{
-							my ($hmm_basename) = $hmm =~ /^(.+?)\.hmm/;
-							if (exists $Motif{$hmm_basename}){
-								my $seq; # the protein seq
-								my $motif = $Motif{$hmm_basename};  $motif =~ s/X/\[ARNDCQEGHILKMFPSTWYV\]/g;
-								my %Seq_gn = _store_seq("$output/total.faa"); # get the total genome sequences
-								$seq = $Seq_gn{">$tmp[0]"};
-								if ($seq =~ /$motif/){
-									if (! exists $Hmmscan_hits{$gn_id}{$hmm}){
-										$Hmmscan_hits{$gn_id}{$hmm} = $tmp[0];
-									}else{
-										$Hmmscan_hits{$gn_id}{$hmm} .= "\,".$tmp[0];
-									}
-									$Hmmscan_result{$gn_id}{$hmm}++;
-								}
-							}elsif(exists $Motif_pair{$hmm_basename}){
-								my $motif_hmm = "$METABOLIC_hmm_db_address/$hmm_basename.check.hmm";
-								my $motif_anti_hmm = "$METABOLIC_hmm_db_address/$Motif_pair{$hmm_basename}.check.hmm";
-								_get_1_from_input_faa("$output/total.faa",">$tmp[0]","$output/tmp.$hmm_basename.check.faa");
-								`hmmsearch --cpu 1 --tblout $output/tmp.$hmm_basename.check.hmmsearch_result.txt $motif_hmm $output/tmp.$hmm_basename.check.faa`;
-								`hmmsearch --cpu 1 --tblout $output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt $motif_anti_hmm $output/tmp.$hmm_basename.check.faa`;
-								my $motif_check_score = _get_check_score("$output/tmp.$hmm_basename.check.hmmsearch_result.txt");
-								my $motif_anti_check_score = _get_check_score("$output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt");
-								if ($motif_check_score >= $motif_anti_check_score and $motif_check_score != 0){
-									if (! exists $Hmmscan_hits{$gn_id}{$hmm}){
-										$Hmmscan_hits{$gn_id}{$hmm} = $tmp[0];
-									}else{
-										$Hmmscan_hits{$gn_id}{$hmm} .= "\,".$tmp[0];
-									}
-									$Hmmscan_result{$gn_id}{$hmm}++;
-								}
-								`rm $output/tmp.$hmm_basename.check.faa $output/tmp.$hmm_basename.check.hmmsearch_result.txt $output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt`;
+	chomp;
+	my $file_name = $_;
+	my ($hmm) = $file_name =~ /^$output\/intermediate_files\/Hmmsearch_Outputs\/(.+?\.hmm)\./;
+	$Hmm_id{$hmm} = 1;
+	my $gn_id = "";
+	open INN, "$file_name";
+	while (<INN>){
+		chomp;
+		if (!/^#/){
+			my $line = $_; $line =~ s/\s+/\t/g;
+			my @tmp = split (/\t/,$line);
+			# temp: list[str] = [
+			# 	"target name",
+			#   "accession",
+			#   "query name",
+			#   "accession",
+			#   *["E-value", "score", "bias"], # full sequence
+			#   *["E-value", "score", "bias"], # best 1 domain
+			#   *["exp", "reg", "clu", "ov", "env", "dom", "rep", "inc"], # domain number estimation
+			#   "description of target",
+			# ]
+			$gn_id = $Seqid2Genomeid{$tmp[0]};
+			my ($threshold, $score_type) = $Total_hmm2threshold{$hmm} =~ /^(.+?)\|(.+?)$/;
+			if ($score_type eq "domain"){
+				if ($tmp[8] >= $threshold){
+					my ($hmm_basename) = $hmm =~ /^(.+?)\.hmm/;
+					if (exists $Motif{$hmm_basename}){
+						my $seq;
+						my $motif = $Motif{$hmm_basename}; $motif =~ s/X/\[ARNDCQEGHILKMFPSTWYV\]/g;
+						my %Seq_gn = _store_seq("$output/total.faa"); # Get the total genome sequences
+						$seq = $Seq_gn{">$tmp[0]"};
+						if ($seq =~ /$motif/){
+							if (! exists $Hmmscan_hits{$gn_id}{$hmm}){
+								$Hmmscan_hits{$gn_id}{$hmm} = $tmp[0];
 							}else{
-								if (! exists $Hmmscan_hits{$gn_id}{$hmm}){
-									$Hmmscan_hits{$gn_id}{$hmm} = $tmp[0];
-								}else{
-									$Hmmscan_hits{$gn_id}{$hmm} .= "\,".$tmp[0];
-								}
-								$Hmmscan_result{$gn_id}{$hmm}++;
+								$Hmmscan_hits{$gn_id}{$hmm} .= "\,".$tmp[0];
 							}
+							$Hmmscan_result{$gn_id}{$hmm}++;
 						}
-                }
-        }
-        close INN;
+					}elsif(exists $Motif_pair{$hmm_basename}){
+						my $motif_hmm = "$METABOLIC_hmm_db_address/$hmm_basename.check.hmm";
+						my $motif_anti_hmm = "$METABOLIC_hmm_db_address/$Motif_pair{$hmm_basename}.check.hmm";
+						_get_1_from_input_faa("$output/total.faa",">$tmp[0]","$output/tmp.$hmm_basename.check.faa");
+						`hmmsearch --cpu 1 --tblout $output/tmp.$hmm_basename.check.hmmsearch_result.txt $motif_hmm $output/tmp.$hmm_basename.check.faa`;
+						`hmmsearch --cpu 1 --tblout $output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt $motif_anti_hmm $output/tmp.$hmm_basename.check.faa`;
+						my $motif_check_score = _get_check_score("$output/tmp.$hmm_basename.check.hmmsearch_result.txt");
+						my $motif_anti_check_score = _get_check_score("$output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt");
+						if ($motif_check_score >= $motif_anti_check_score and $motif_check_score != 0){
+							if (! exists $Hmmscan_hits{$gn_id}{$hmm}){
+								$Hmmscan_hits{$gn_id}{$hmm} = $tmp[0];
+							}else{
+								$Hmmscan_hits{$gn_id}{$hmm} .= "\,".$tmp[0];
+							}
+							$Hmmscan_result{$gn_id}{$hmm}++;
+						}
+						`rm $output/tmp.$hmm_basename.check.faa $output/tmp.$hmm_basename.check.hmmsearch_result.txt $output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt`;
+					}else{ # Do not have motif check step
+						if (! exists $Hmmscan_hits{$gn_id}{$hmm}){
+							$Hmmscan_hits{$gn_id}{$hmm} = $tmp[0];
+						}else{
+							$Hmmscan_hits{$gn_id}{$hmm} .= "\,".$tmp[0];
+						}
+						$Hmmscan_result{$gn_id}{$hmm}++;
+					}
+				}
+			}else{
+				my ($hmm_basename) = $hmm =~ /^(.+?)\.hmm/;
+				if (exists $Motif{$hmm_basename}){
+					my $seq; # the protein seq
+					my $motif = $Motif{$hmm_basename};  $motif =~ s/X/\[ARNDCQEGHILKMFPSTWYV\]/g;
+					my %Seq_gn = _store_seq("$output/total.faa"); # get the total genome sequences
+					$seq = $Seq_gn{">$tmp[0]"};
+					if ($seq =~ /$motif/){
+						if (! exists $Hmmscan_hits{$gn_id}{$hmm}){
+							$Hmmscan_hits{$gn_id}{$hmm} = $tmp[0];
+						}else{
+							$Hmmscan_hits{$gn_id}{$hmm} .= "\,".$tmp[0];
+						}
+						$Hmmscan_result{$gn_id}{$hmm}++;
+					}
+				}elsif(exists $Motif_pair{$hmm_basename}){
+					my $motif_hmm = "$METABOLIC_hmm_db_address/$hmm_basename.check.hmm";
+					my $motif_anti_hmm = "$METABOLIC_hmm_db_address/$Motif_pair{$hmm_basename}.check.hmm";
+					_get_1_from_input_faa("$output/total.faa",">$tmp[0]","$output/tmp.$hmm_basename.check.faa");
+					`hmmsearch --cpu 1 --tblout $output/tmp.$hmm_basename.check.hmmsearch_result.txt $motif_hmm $output/tmp.$hmm_basename.check.faa`;
+					`hmmsearch --cpu 1 --tblout $output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt $motif_anti_hmm $output/tmp.$hmm_basename.check.faa`;
+					my $motif_check_score = _get_check_score("$output/tmp.$hmm_basename.check.hmmsearch_result.txt");
+					my $motif_anti_check_score = _get_check_score("$output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt");
+					if ($motif_check_score >= $motif_anti_check_score and $motif_check_score != 0){
+						if (! exists $Hmmscan_hits{$gn_id}{$hmm}){
+							$Hmmscan_hits{$gn_id}{$hmm} = $tmp[0];
+						}else{
+							$Hmmscan_hits{$gn_id}{$hmm} .= "\,".$tmp[0];
+						}
+						$Hmmscan_result{$gn_id}{$hmm}++;
+					}
+					`rm $output/tmp.$hmm_basename.check.faa $output/tmp.$hmm_basename.check.hmmsearch_result.txt $output/tmp.$Motif_pair{$hmm_basename}.check.hmmsearch_result.txt`;
+				}else{
+					if (! exists $Hmmscan_hits{$gn_id}{$hmm}){
+						$Hmmscan_hits{$gn_id}{$hmm} = $tmp[0];
+					}else{
+						$Hmmscan_hits{$gn_id}{$hmm} .= "\,".$tmp[0];
+					}
+					$Hmmscan_result{$gn_id}{$hmm}++;
+				}
+			}
+		}
+	}
+	close INN;
 }
 close IN;
 
