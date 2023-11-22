@@ -640,27 +640,6 @@ close IN;
 # 	key type string: "{module category,str}"
 # 	value type string: "{(M\d{5}\t)*M\d{5}}"
 
-# Store the KEGG module step database
-my %KEGG_module = (); # M00804+01 => 0: k_string 1: name (dTDP-D-forosamine biosynthesis)
-my %KEGG_module2step_number = (); # M00804 => 3
-my %KEGG_module2name = (); # M00804 => dTDP-D-forosamine biosynthesis
-# "METABOLIC_template_and_database/kegg_module_step_db.txt"
-open IN, "$ko_module_step_db";
-while (<IN>){
-	chomp;
-	if (!/^name/){
-		my @tmp = split (/\t/);
-		$KEGG_module{$tmp[2]}[0] = $tmp[1];
-		$KEGG_module{$tmp[2]}[1] = $tmp[0];
-		my ($module,$step_num) = $tmp[2] =~ /^(M.+?)\+(.+?)$/;
-		$KEGG_module2step_number{$module} = int($step_num);
-		$KEGG_module2name{$module} = $tmp[0];
-	}
-}
-close IN;
-
-# will use more efficient way
-
 # Input the hmm_table_temp hash, return a hmm to ko hash (like: TIGR02694.hmm => K08355.hmm)
 # some feature? "K00129.hmm, K00138.hmm" => "K00129, K00138.hmm"
 sub _get_hmm_2_KO_hash{
@@ -695,92 +674,138 @@ my %Hmm2ko = _get_hmm_2_KO_hash(%Hmm_table_temp); # like: TIGR02694.hmm => K0835
 
 # Hmm2ko: dict[str, str] # "K00129.hmm, K00138.hmm" => "K00129, K00138.hmm"
 
+## Following parts can be masked by efficient way
+ sub _determine_module_step{
+     my ($k_string, @ko_hits) = @_;
+
+     # Create a hash for faster lookup
+     my %ko_hash;
+     @ko_hash{@ko_hits} = ();
+
+     # Iterate over each KO number in the k_string
+     while ($k_string =~ /(K\d+)/g) {
+         my $ko_number = $1;
+         my $replacement = exists $ko_hash{$ko_number} ? '1' : '0';
+         $k_string =~ s/\Q$ko_number\E/$replacement/g;
+     }
+
+     # Evaluate the modified k_string as a boolean expression
+     my $result = eval(sprintf('(%s)', $k_string));
+
+     if ($result){
+ 		return '1';
+ 	}else{
+ 		return '0';
+ 	}
+ }
+
+ # Store the KEGG module step database
+ my %KEGG_module = (); # M00804+01 => 0: k_string 1: name (dTDP-D-forosamine biosynthesis)
+ my %KEGG_module2step_number = (); # M00804 => 3
+ my %KEGG_module2name = (); # M00804 => dTDP-D-forosamine biosynthesis
+ # "METABOLIC_template_and_database/kegg_module_step_db.txt"
+ open IN, "$ko_module_step_db";
+ while (<IN>){
+ 	chomp;
+ 	if (!/^name/){
+ 		my @tmp = split (/\t/);
+ 		$KEGG_module{$tmp[2]}[0] = $tmp[1];
+ 		$KEGG_module{$tmp[2]}[1] = $tmp[0];
+ 		my ($module,$step_num) = $tmp[2] =~ /^(M.+?)\+(.+?)$/;
+ 		$KEGG_module2step_number{$module} = int($step_num);
+ 		$KEGG_module2name{$module} = $tmp[0];
+ 	}
+ }
+ close IN;
+
+ # To see whether a module step exists for a given genome
+ my %Module_step_result = (); # M00804+01 => genome id => 1 / 0
+ foreach my $m_step (sort keys %KEGG_module){
+ 	foreach my $gn_id (sort keys %Genome_id){
+ 		my $k_string = $KEGG_module{$m_step}[0];
+ 		my @ko_hits = (); # All the ko hits for this genome
+ 		foreach my $hmm (sort keys %Hmm_id){
+ 			my $hmm_new = ""; # transfer all the hmm id to ko id
+ 			if (exists $Hmm2ko{$hmm}){
+ 				$hmm_new = $Hmm2ko{$hmm};
+ 			}elsif (!exists $Hmm2ko{$hmm} and $hmm =~ /^K\d\d\d\d\d/){
+ 				$hmm_new = $hmm;
+ 			}
+ 			my $hmm_new_wo_ext =  "";
+ 			if ($hmm_new){
+ 				($hmm_new_wo_ext) = $hmm_new =~ /^(.+?)\.hmm/;
+ 			}
+ 			if ($hmm_new_wo_ext and $Hmmscan_result{$gn_id}{$hmm}){
+ 				push @ko_hits, $hmm_new_wo_ext;
+ 			}
+ 		}
+ 		$Module_step_result{$m_step}{$gn_id} = _determine_module_step($k_string, @ko_hits);
+ 	}
+ }
+
+ my %Module_result = (); # M00804 => genome name => Absent / Present
+ foreach my $module (sort keys  %KEGG_module2step_number){
+ 	foreach my $gn_id (sort keys %Genome_id){
+ 		my $present_no = 0;
+ 		foreach my $module_step (sort keys %Module_step_result){
+ 			if ($module_step =~ /$module/){
+ 				if ($Module_step_result{$module_step}{$gn_id}){
+ 					$present_no += $Module_step_result{$module_step}{$gn_id};
+ 				}
+ 			}
+ 		}
+
+ 		my $ratio = $present_no / $KEGG_module2step_number{$module};
+
+ 		if ($ratio >= $module_cutoff){
+ 			$Module_result{$module}{$gn_id} = "Present";
+ 		}else{
+ 			$Module_result{$module}{$gn_id} = "Absent";
+ 		}
+
+ 	}
+ }
+
+ # Print worksheet3
+ # Write the head of hmm result to worksheet3
+ open OUT, ">$output/METABOLIC_result_each_spreadsheet/METABOLIC_result_worksheet3.tsv";
+ # Print head
+ my @Worksheet3_head = ();
+ push @Worksheet3_head, "Module ID";
+ push @Worksheet3_head, "Module";
+ push @Worksheet3_head, "Module Category";
+
+ foreach my $gn_id (sort keys %Genome_id){
+ 	push @Worksheet3_head, "$gn_id Module presence";
+ }
+ print OUT join("\t",@Worksheet3_head)."\n";
+
+ # Print the worksheet3 result
+ foreach my $module (sort keys %Module_result){
+ 	my @Worksheet3_body = ();
+ 	push @Worksheet3_body, $module;
+ 	push @Worksheet3_body, $KEGG_module2name{$module};
+ 	my $cat_4_module = ""; # The category name for module
+ 	foreach my $cat (sort keys %Cat2module){
+ 		if ($Cat2module{$cat} =~ /$module/){
+ 			$cat_4_module = $cat;
+ 		}
+ 	}
+ 	push @Worksheet3_body, $cat_4_module;
+ 	foreach my $gn_id (sort keys %Genome_id){
+ 		push @Worksheet3_body, $Module_result{$module}{$gn_id};
+ 	}
+ 	print OUT join("\t",@Worksheet3_body)."\n";
+ }
+ close OUT;
+
+# will use more efficient way
+
 my %test_export = %Hmm2ko;
 foreach my $key (sort keys %test_export){
     print ">$key<: >$test_export{$key}<\n";
 }
 die("0\n");
-
-# To see whether a module step exists for a given genome
-my %Module_step_result = (); # M00804+01 => genome id => 1 / 0
-foreach my $m_step (sort keys %KEGG_module){
-	foreach my $gn_id (sort keys %Genome_id){
-		my $k_string = $KEGG_module{$m_step}[0];
-		my @ko_hits = (); # All the ko hits for this genome
-		foreach my $hmm (sort keys %Hmm_id){
-			my $hmm_new = ""; # transfer all the hmm id to ko id
-			if (exists $Hmm2ko{$hmm}){
-				$hmm_new = $Hmm2ko{$hmm};
-			}elsif (!exists $Hmm2ko{$hmm} and $hmm =~ /^K\d\d\d\d\d/){
-				$hmm_new = $hmm;
-			}
-			my $hmm_new_wo_ext =  "";
-			if ($hmm_new){
-				($hmm_new_wo_ext) = $hmm_new =~ /^(.+?)\.hmm/;
-			}
-			if ($hmm_new_wo_ext and $Hmmscan_result{$gn_id}{$hmm}){
-				push @ko_hits, $hmm_new_wo_ext;
-			}
-		}
-		$Module_step_result{$m_step}{$gn_id} = _determine_module_step($k_string, @ko_hits);
-	}
-}
-
-my %Module_result = (); # M00804 => genome name => Absent / Present
-foreach my $module (sort keys  %KEGG_module2step_number){
-	foreach my $gn_id (sort keys %Genome_id){
-		my $present_no = 0;
-		foreach my $module_step (sort keys %Module_step_result){
-			if ($module_step =~ /$module/){
-				if ($Module_step_result{$module_step}{$gn_id}){
-					$present_no += $Module_step_result{$module_step}{$gn_id};
-				}
-			}
-		}
-
-		my $ratio = $present_no / $KEGG_module2step_number{$module};
-
-		if ($ratio >= $module_cutoff){
-			$Module_result{$module}{$gn_id} = "Present";
-		}else{
-			$Module_result{$module}{$gn_id} = "Absent";
-		}
-
-	}
-}
-
-# Print worksheet3
-# Write the head of hmm result to worksheet3
-open OUT, ">$output/METABOLIC_result_each_spreadsheet/METABOLIC_result_worksheet3.tsv";
-# Print head
-my @Worksheet3_head = ();
-push @Worksheet3_head, "Module ID";
-push @Worksheet3_head, "Module";
-push @Worksheet3_head, "Module Category";
-
-foreach my $gn_id (sort keys %Genome_id){
-	push @Worksheet3_head, "$gn_id Module presence";
-}
-print OUT join("\t",@Worksheet3_head)."\n";
-
-# Print the worksheet3 result
-foreach my $module (sort keys %Module_result){
-	my @Worksheet3_body = ();
-	push @Worksheet3_body, $module;
-	push @Worksheet3_body, $KEGG_module2name{$module};
-	my $cat_4_module = ""; # The category name for module
-	foreach my $cat (sort keys %Cat2module){
-		if ($Cat2module{$cat} =~ /$module/){
-			$cat_4_module = $cat;
-		}
-	}
-	push @Worksheet3_body, $cat_4_module;
-	foreach my $gn_id (sort keys %Genome_id){
-		push @Worksheet3_body, $Module_result{$module}{$gn_id};
-	}
-	print OUT join("\t",@Worksheet3_body)."\n";
-}
-close OUT;
 
 # Print worksheet4
 # Write the head of hmm result to worksheet4
@@ -1273,28 +1298,4 @@ sub _run_parallel{
 		$pm->finish;
 	}
 	$pm->wait_all_children;
-}
-
-sub _determine_module_step{
-    my ($k_string, @ko_hits) = @_;
-
-    # Create a hash for faster lookup
-    my %ko_hash;
-    @ko_hash{@ko_hits} = ();
-
-    # Iterate over each KO number in the k_string
-    while ($k_string =~ /(K\d+)/g) {
-        my $ko_number = $1;
-        my $replacement = exists $ko_hash{$ko_number} ? '1' : '0';
-        $k_string =~ s/\Q$ko_number\E/$replacement/g;
-    }
-
-    # Evaluate the modified k_string as a boolean expression
-    my $result = eval(sprintf('(%s)', $k_string));
-
-    if ($result){
-		return '1';
-	}else{
-		return '0';
-	}
 }
