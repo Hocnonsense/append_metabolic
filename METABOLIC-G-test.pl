@@ -246,25 +246,6 @@ my %Total_hmm2threshold = (%METABOLIC_hmm2threshold, _get_kofam_db_KO_threshold(
  # 	key type string: "{genename,str}.hmm"
  # 	value type string: "{threshold,float}|{type,(full|domain)}"
 
-# Store the hmm table template 2
-my %Hmm_table_temp_2 = (); # line no. => each line;
-open IN, "$hmm_table_temp_2";
-while (<IN>){
-	chomp;
-	if (!/^#/){
-		my @tmp = split (/\t/);
-		$Hmm_table_temp_2{$tmp[0]}= $_;
-	}
-}
-close IN;
-
-# Hmm_table_temp_2: dict[str, str]
-# 	key type string: "{genename,\d{3}}"
-# 	value type string: "the line in file"
-# 		that is:
-# ["Function", "Entry", "Category", "Function", "Gene abbreviation"]
-# 	in which, Hmm_table_temp_2.Entry refers to Hmm_table_head.`#Entry`
-
 `mkdir -p $output/intermediate_files`;
 
 my %Genome_id = (); # genome id => 1
@@ -518,6 +499,25 @@ foreach my $line_no (sort keys %Hmm_table_temp){
 	print OUT join("\t",@Hmm_table_body_worksheet1)."\n";
 }
 close OUT;
+
+# Store the hmm table template 2
+my %Hmm_table_temp_2 = (); # line no. => each line;
+open IN, "$hmm_table_temp_2";
+while (<IN>){
+	chomp;
+	if (!/^#/){
+		my @tmp = split (/\t/);
+		$Hmm_table_temp_2{$tmp[0]}= $_;
+	}
+}
+close IN;
+
+# Hmm_table_temp_2: dict[str, str]
+# 	key type string: "{genename,\d{3}}"
+# 	value type string: "the line in file"
+# 		that is:
+# ["Function", "Entry", "Category", "Function", "Gene abbreviation"]
+# 	in which, Hmm_table_temp_2.Entry refers to Hmm_table_head.`#Entry`
 
 # Print worksheet2
 open OUT, ">$output/METABOLIC_result_each_spreadsheet/METABOLIC_result_worksheet2.tsv";
