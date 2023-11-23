@@ -737,15 +737,15 @@ foreach my $genome_name (sort keys %Hmmscan_result){
 	foreach my $hmm (sort keys %Hmm_id){
 		# nevermind if hmm in Hmmscan_result
 		my $hmm_new = ""; # Transfer all the hmm id to ko id
+		# KEGG results will be masked by METABOLIC_hmm results
 		if (exists $Hmm2ko{$hmm}){
 			$hmm_new = $Hmm2ko{$hmm};
-		}elsif ((!exists $Hmm2ko{$hmm}) and $hmm =~ /^K\d\d\d\d\d/){
+		} elsif ($hmm =~ /^K\d\d\d\d\d/){
 			$hmm_new = $hmm;
 		}
 		# only allow KO results, and only export them
-		my $hmm_new_wo_ext =  "";
 		if ($hmm_new){
-			($hmm_new_wo_ext) = $hmm_new =~ /^(.+?)\.hmm/;
+			my ($hmm_new_wo_ext) = $hmm_new =~ /^(.+?)\.hmm/;
 			$New_hmmid{$hmm_new_wo_ext} = 1;
 			$Hmmscan_result_for_KO{$genome_name}{$hmm_new_wo_ext} = $Hmmscan_result{$genome_name}{$hmm};
 			$Hmmscan_hits_for_KO{$genome_name}{$hmm_new_wo_ext} = $Hmmscan_hits{$genome_name}{$hmm};
@@ -761,18 +761,6 @@ foreach my $genome_name (sort keys %Hmmscan_result){
 # 	}
 # 	for g in genomes
 # }
-
-my %test_export = %Hmmscan_hits_for_KO;
-foreach my $key (sort keys %test_export){
-	print ">$key<: >$test_export{$key}<\n";
-	my $test_export1 = $test_export{$key};
-	foreach my $key1 (sort keys %$test_export1){
-		if (!!$test_export{$key}{$key1}) {
-			print ">$key<: >$key1<: >$test_export{$key}{$key1}<\n";
-		}
-	}
-}
-die("1");
 
 `mkdir $output/KEGG_identifier_result`;
 foreach my $gn_id (sort keys %Genome_id){
@@ -798,53 +786,52 @@ foreach my $gn_id (sort keys %Genome_id){
 $datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
 print "\[$datestring\] The KEGG identifier \(KO id\) seaching result is finished\n";
 
-
 # Run the dbCAN
 $datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
 print "\[$datestring\] Searching CAZymes by dbCAN2...\n";
 
-`mkdir $output/intermediate_files/dbCAN2_Files`;
+`mkdir -p $output/intermediate_files/dbCAN2_Files`;
 open OUT, ">$output/tmp_run_dbCAN2.sh";
 open IN,"ls $input_protein_folder/*.faa |";
-while (<IN>){
+while (<IN>) {
 	chomp;
 	my $file = $_;
 	my ($gn_id) = $file =~ /^$input_protein_folder\/(.+?)\.faa/;
-		print OUT "hmmscan --domtblout $output/intermediate_files/dbCAN2_Files/$gn_id.dbCAN2.out.dm --cpu 1 $METABOLIC_dir/dbCAN2/dbCAN-fam-HMMs.txt $file > $output/intermediate_files/dbCAN2_Files/$gn_id.dbCAN2.out;";
-		print OUT "python $METABOLIC_dir/Accessory_scripts/hmmscan-parser-dbCANmeta.py $output/intermediate_files/dbCAN2_Files/$gn_id.dbCAN2.out.dm > $output/intermediate_files/dbCAN2_Files/$gn_id.dbCAN2.out.dm.ps\n";
+	print OUT "hmmscan --domtblout $output/intermediate_files/dbCAN2_Files/$gn_id.dbCAN2.out.dm --cpu 1 $METABOLIC_dir/dbCAN2/dbCAN-fam-HMMs.txt $file > $output/intermediate_files/dbCAN2_Files/$gn_id.dbCAN2.out;";
+	print OUT "python $METABOLIC_dir/Accessory_scripts/hmmscan-parser-dbCANmeta.py $output/intermediate_files/dbCAN2_Files/$gn_id.dbCAN2.out.dm > $output/intermediate_files/dbCAN2_Files/$gn_id.dbCAN2.out.dm.ps\n";
 }
 close IN;
 close OUT;
 
 # Parallel run dbCAN2
-_run_parallel("$output/tmp_run_dbCAN2.sh", $cpu_numbers); `rm $output/tmp_run_dbCAN2.sh`;
-
+#@MASK_IN_PERL
+#_run_parallel("$output/tmp_run_dbCAN2.sh", $cpu_numbers);
+# `rm $output/tmp_run_dbCAN2.sh`;
 
 my %dbCANout = (); # genome => hmmid => number
 my %dbCANout2 = (); # genome => hmmid => hits
 my %Hmm_dbCAN2_id = (); # hmm => 1
 open IN, "ls $output/intermediate_files/dbCAN2_Files/*.dbCAN2.out.dm.ps |";
-while (<IN>)
-{
+while (<IN>) {
 	my $file = $_;
 	my ($gn_id) = $file =~ /^$output\/intermediate_files\/dbCAN2_Files\/(.+?)\.dbCAN2\.out\.dm\.ps/;
     open INN, "$file";
 	while (<INN>){
 	   if (/^GH|^PL/){
-               my @tmp = split(/\t/,$_);
-               my ($hmmid) = $tmp[0] =~ /(\S+?)\.hmm/;
-			   my ($hmmid_p1,$hmmid_p2) = $hmmid =~ /^(\D+?)(\d+)/;
-			   my $num=(sprintf "%03d", $hmmid_p2);
-			   $hmmid = $hmmid_p1.$num;
-			   $Hmm_dbCAN2_id{$hmmid} = 1;
-               my ($name) = $tmp[2];
+			my @tmp = split(/\t/,$_);
+			my ($hmmid) = $tmp[0] =~ /(\S+?)\.hmm/;
+			my ($hmmid_p1,$hmmid_p2) = $hmmid =~ /^(\D+?)(\d+)/;
+			my $num=(sprintf "%03d", $hmmid_p2);
+			$hmmid = $hmmid_p1.$num;
+			$Hmm_dbCAN2_id{$hmmid} = 1;
+			my ($name) = $tmp[2];
 
-               $dbCANout{$gn_id}{$hmmid}++;
-               if (!exists $dbCANout2{$gn_id}{$hmmid}){
-                       $dbCANout2{$gn_id}{$hmmid} = $name;
-               }else{
-                       $dbCANout2{$gn_id}{$hmmid} .= "\;".$name;
-               }
+			$dbCANout{$gn_id}{$hmmid}++;
+			if (!exists $dbCANout2{$gn_id}{$hmmid}){
+					$dbCANout2{$gn_id}{$hmmid} = $name;
+			}else{
+					$dbCANout2{$gn_id}{$hmmid} .= "\;".$name;
+			}
        }
 	}
 	close INN;
@@ -904,7 +891,8 @@ close IN;
 close OUT;
 
 # Parallel run dbCAN2
-_run_parallel("$output/tmp_run_MEROPS.sh", $cpu_numbers); `rm $output/tmp_run_MEROPS.sh`;
+#@MASK_IN_PERL
+#_run_parallel("$output/tmp_run_MEROPS.sh", $cpu_numbers); `rm $output/tmp_run_MEROPS.sh`;
 
 my %MEROPS_map; # MER id => all line
 open IN, "$METABOLIC_dir/MEROPS/pepunit.lib";
@@ -929,18 +917,31 @@ while (<IN>)
     open INN, "$file";
 	while (<INN>){
 	   my @tmp = split(/\t/,$_);
-	   my ($meropsid) = $MEROPS_map{$tmp[1]} =~ /\#(.+?)\#/; $MEROPSid{$meropsid} = 1;
+	   my ($meropsid) = $MEROPS_map{$tmp[1]} =~ /\#(.+?)\#/;
+	   $MEROPSid{$meropsid} = 1;
 	   my ($name) = $tmp[0];
 	   $MEROPSout{$gn_id}{$meropsid}++;
 	   if (!exists $MEROPSout2{$gn_id}{$meropsid}){
-                $MEROPSout2{$gn_id}{$meropsid} = $name;
+			$MEROPSout2{$gn_id}{$meropsid} = $name;
         }else{
-                $MEROPSout2{$gn_id}{$meropsid} .= "\;".$name;
+			$MEROPSout2{$gn_id}{$meropsid} .= "\;".$name;
         }
 	}
 	close INN;
 }
 close IN;
+
+my %test_export = %MEROPSout2;
+foreach my $key (sort keys %test_export){
+	print ">$key<: >$test_export{$key}<\n";
+	my $test_export1 = $test_export{$key};
+	foreach my $key1 (sort keys %$test_export1){
+		if (!!$test_export{$key}{$key1}) {
+			print ">$key<: >$key1<: >$test_export{$key}{$key1}<\n";
+		}
+	}
+}
+die("1");
 
 $datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
 print "\[$datestring\] MEROPS peptidase searching is done\n";
@@ -977,6 +978,8 @@ foreach my $hmmid (sort keys %MEROPSid){
 	print OUT join("\t",@Worksheet6_body)."\n";
 }
 close OUT;
+
+die("no figure and concat table");
 
 `Rscript $METABOLIC_dir/create_excel_spreadsheet.R $output/METABOLIC_result_each_spreadsheet/ > /dev/null`;
 `mv METABOLIC_result.xlsx $output/METABOLIC_result.xlsx`;
