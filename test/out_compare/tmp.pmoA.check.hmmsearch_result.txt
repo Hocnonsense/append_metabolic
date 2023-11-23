@@ -1,0 +1,13 @@
+#                                                               --- full sequence ---- --- best 1 domain ---- --- domain number estimation ----
+# target name        accession  query name           accession    E-value  score  bias   E-value  score  bias   exp reg clu  ov env dom rep inc description of target
+#------------------- ---------- -------------------- ---------- --------- ------ ----- --------- ------ -----   --- --- --- --- --- --- --- --- ---------------------
+#
+# Program:         hmmsearch
+# Version:         3.4 (Aug 2023)
+# Pipeline mode:   SEARCH
+# Query file:      /dssg/home/acct-trench/trench-0/clsxx/Users/hwrn.aou/Templates/METABOLIC/METABOLIC_hmm_db/pmoA.check.hmm
+# Target file:     test/out_compare/tmp.amoA.check.faa
+# Option settings: hmmsearch --tblout test/out_compare/tmp.pmoA.check.hmmsearch_result.txt --cpu 1 /dssg/home/acct-trench/trench-0/clsxx/Users/hwrn.aou/Templates/METABOLIC/METABOLIC_hmm_db/pmoA.check.hmm test/out_compare/tmp.amoA.check.faa 
+# Current dir:     /dssg/home/acct-trench/trench-0/clsxx/Users/hwrn.aou/Templates/METABOLIC
+# Date:            Tue Nov 21 17:22:29 2023
+# [ok]

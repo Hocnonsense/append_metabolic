@@ -1,0 +1,14 @@
+#                                                                --- full sequence ---- --- best 1 domain ---- --- domain number estimation ----
+# target name         accession  query name           accession    E-value  score  bias   E-value  score  bias   exp reg clu  ov env dom rep inc description of target
+# ------------------- ---------- -------------------- ---------- --------- ------ ----- --------- ------ -----   --- --- --- --- --- --- --- --- ---------------------
+M77_2|k141_10148615_7 -          amoA_all_mafft       -              3e-73  232.4  20.1   3.3e-73  232.3  20.1   1.0   1   0   0   1   1   1   1 -
+#
+# Program:         hmmsearch
+# Version:         3.4 (Aug 2023)
+# Pipeline mode:   SEARCH
+# Query file:      /dssg/home/acct-trench/trench-0/clsxx/Users/hwrn.aou/Templates/METABOLIC/METABOLIC_hmm_db/amoA.check.hmm
+# Target file:     test/out_compare/tmp.amoA.check.faa
+# Option settings: hmmsearch --tblout test/out_compare/tmp.amoA.check.hmmsearch_result.txt --cpu 1 /dssg/home/acct-trench/trench-0/clsxx/Users/hwrn.aou/Templates/METABOLIC/METABOLIC_hmm_db/amoA.check.hmm test/out_compare/tmp.amoA.check.faa 
+# Current dir:     /dssg/home/acct-trench/trench-0/clsxx/Users/hwrn.aou/Templates/METABOLIC
+# Date:            Tue Nov 21 17:22:29 2023
+# [ok]
