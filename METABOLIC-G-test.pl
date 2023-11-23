@@ -378,6 +378,7 @@ my %Motif_pair = _get_motif_pair($motif_pair_file); # dsrC => tusE
 # Summarize hmmsearch result and print table
 my %Hmmscan_result = (); # genome_name => hmm => numbers
 my %Hmmscan_hits = (); # genome_name => hmm => hits
+# hmm included both KEGG and METABOLIC_hmm
 my %Hmm_id = (); # hmm => 1
 my %Seq_gn = _store_seq("$output/total.faa"); # Get the total genome sequences
 open IN, "find $output/intermediate_files/Hmmsearch_Outputs -type f -name '*.hmmsearch_result.txt' | ";
@@ -640,40 +641,6 @@ close IN;
 # 	key type string: "{module category,str}"
 # 	value type string: "{(M\d{5}\t)*M\d{5}}"
 
-# Input the hmm_table_temp hash, return a hmm to ko hash (like: TIGR02694.hmm => K08355.hmm)
-# some feature? "K00129.hmm, K00138.hmm" => "K00129, K00138.hmm"
-sub _get_hmm_2_KO_hash{
-	my %hash = @_;
-	my %result = ();
-	my %result2 = ();
-	foreach my $line_no (sort keys %hash){
-		my @tmp = split (/\t/, $hash{$line_no});
-		my $hmm = $tmp[5];
-		my $ko = $tmp[6];
-		if ($hmm and $hmm !~ /\;/){
-				$result{$hmm} = $ko."\.hmm";
-		}elsif ($hmm){
-			my @array_hmm = split (/\; /, $hmm);
-			my @array_ko = split (/\; /, $ko);
-			for(my $i=0; $i<=$#array_hmm; $i++){
-				$result{$array_hmm[$i]} = $array_ko[$i]."\.hmm";
-			}
-		}
-	}
-
-	foreach my $hmm (sort keys %result){
-		if ($result{$hmm} =~ /^K\d\d\d\d\d/){
-			$result2{$hmm} = $result{$hmm};
-		}
-	}
-	return %result2;
-}
-
-# The hmm to ko id hash
-my %Hmm2ko = _get_hmm_2_KO_hash(%Hmm_table_temp); # like: TIGR02694.hmm => K08355.hmm
-
-# Hmm2ko: dict[str, str] # "K00129.hmm, K00138.hmm" => "K00129, K00138.hmm"
-
 ## Following parts can be masked by efficient way
  sub _determine_module_step{
      my ($k_string, @ko_hits) = @_;
@@ -726,35 +693,86 @@ my %Hmm2ko = _get_hmm_2_KO_hash(%Hmm_table_temp); # like: TIGR02694.hmm => K0835
 $datestring = strftime "%Y-%m-%d %H:%M:%S", localtime;
 print "\[$datestring\] The KEGG identifier \(KO id\) result is calculating...\n";
 
-my %test_export = %Hmm2ko;
-foreach my $key (sort keys %test_export){
-    print ">$key<: >$test_export{$key}<\n";
+# Input the hmm_table_temp hash, return a hmm to ko hash (like: TIGR02694.hmm => K08355.hmm)
+# Map hmm_table_temp[5] to hmm_table_temp[6]
+# some feature? "K00129.hmm, K00138.hmm" => "K00129, K00138.hmm"
+sub _get_hmm_2_KO_hash{
+	my %hash = @_;
+	my %result = ();
+	my %result2 = ();
+	foreach my $line_no (sort keys %hash){
+		my @tmp = split (/\t/, $hash{$line_no});
+		my $hmm = $tmp[5];
+		my $ko = $tmp[6];
+		if ($hmm and $hmm !~ /\;/){
+			$result{$hmm} = $ko."\.hmm";
+		} elsif ($hmm){
+			my @array_hmm = split (/\; /, $hmm);
+			my @array_ko = split (/\; /, $ko);
+			for(my $i=0; $i<=$#array_hmm; $i++){
+				$result{$array_hmm[$i]} = $array_ko[$i]."\.hmm";
+			}
+		}
+	}
+
+	foreach my $hmm (sort keys %result){
+		if ($hmm !~ /^K\d\d\d\d\d/ and $result{$hmm} =~ /^K\d\d\d\d\d/){
+			$result2{$hmm} = $result{$hmm};
+		}
+	}
+	return %result2;
 }
-die("0\n");
+
+# The hmm to ko id hash
+my %Hmm2ko = _get_hmm_2_KO_hash(%Hmm_table_temp); # like: TIGR02694.hmm => K08355.hmm
+
+# Hmm2ko: dict[str, str] # "K00129.hmm, K00138.hmm" => "K00129, K00138.hmm"
+# 	only non-KO parts meaningful
 
 # Print the KEGG KO hits
 my %Hmmscan_result_for_KO = ();  # new gn id => KO => numbers
 my %Hmmscan_hits_for_KO = (); # new gn id => KO => hits
 my %New_hmmid = (); # KOs (without extension) => 1
-
 foreach my $genome_name (sort keys %Hmmscan_result){
-	my $gn = $genome_name;
 	foreach my $hmm (sort keys %Hmm_id){
+		# nevermind if hmm in Hmmscan_result
 		my $hmm_new = ""; # Transfer all the hmm id to ko id
 		if (exists $Hmm2ko{$hmm}){
 			$hmm_new = $Hmm2ko{$hmm};
-		}elsif (!exists $Hmm2ko{$hmm} and $hmm =~ /^K\d\d\d\d\d/){
+		}elsif ((!exists $Hmm2ko{$hmm}) and $hmm =~ /^K\d\d\d\d\d/){
 			$hmm_new = $hmm;
 		}
+		# only allow KO results, and only export them
 		my $hmm_new_wo_ext =  "";
 		if ($hmm_new){
-			($hmm_new_wo_ext) = $hmm_new =~ /^(.+?)\.hmm/; $New_hmmid{$hmm_new_wo_ext} = 1;
-			$Hmmscan_result_for_KO{$gn}{$hmm_new_wo_ext} = $Hmmscan_result{$genome_name}{$hmm};
-			$Hmmscan_hits_for_KO{$gn}{$hmm_new_wo_ext} = $Hmmscan_hits{$genome_name}{$hmm};
+			($hmm_new_wo_ext) = $hmm_new =~ /^(.+?)\.hmm/;
+			$New_hmmid{$hmm_new_wo_ext} = 1;
+			$Hmmscan_result_for_KO{$genome_name}{$hmm_new_wo_ext} = $Hmmscan_result{$genome_name}{$hmm};
+			$Hmmscan_hits_for_KO{$genome_name}{$hmm_new_wo_ext} = $Hmmscan_hits{$genome_name}{$hmm};
 		}
 
 	}
 }
+
+# Hmmscan_result_for_KO: dict[str, dict[str, str|None]] = {
+# 	g: {
+# 		ko: Hmmscan_result[g].get(ko, None)
+# 		for ko in kos if is_KEGG_KO(ko)
+# 	}
+# 	for g in genomes
+# }
+
+my %test_export = %Hmmscan_hits_for_KO;
+foreach my $key (sort keys %test_export){
+	print ">$key<: >$test_export{$key}<\n";
+	my $test_export1 = $test_export{$key};
+	foreach my $key1 (sort keys %$test_export1){
+		if (!!$test_export{$key}{$key1}) {
+			print ">$key<: >$key1<: >$test_export{$key}{$key1}<\n";
+		}
+	}
+}
+die("1");
 
 `mkdir $output/KEGG_identifier_result`;
 foreach my $gn_id (sort keys %Genome_id){
